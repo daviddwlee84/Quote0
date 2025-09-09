@@ -1,13 +1,20 @@
 #!/bin/bash
 
-# Check if image argument is provided
+# Check if image argument is provided via command line or pipe
 if [ $# -eq 0 ]; then
-    echo "Usage: $0 <base64_image_string>"
-    echo "Example: $0 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mNgYGAAAAAEAAHI6uv5AAAAAElFTkSuQmCC'"
-    exit 1
+    # Try to read from stdin (pipe)
+    if [ -t 0 ]; then
+        echo "Usage: $0 <base64_image_string>"
+        echo "Example: $0 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mNgYGAAAAAEAAHI6uv5AAAAAElFTkSuQmCC'"
+        echo "Or pipe data: echo 'base64_string' | $0"
+        exit 1
+    else
+        # Read from stdin
+        IMAGE_DATA=$(cat)
+    fi
+else
+    IMAGE_DATA="$1"
 fi
-
-IMAGE_DATA="$1"
 
 curl -X POST \
   https://dot.mindreset.tech/api/open/image \

@@ -140,10 +140,15 @@ def render_compact_base64_from_api(
 if __name__ == "__main__":
     # 範例：忽略時間 + 0 軸 + 灰底
     b64 = render_compact_base64_from_api(
-        product="conbond",
+        product="stock",
+        # product="conbond",
         show_zero_axis=True,
         x_mode="index",  # 改成 "time" 會依實際時間間隔
         # facecolor="#E0E0E0",  # 想要白底就設 None
         facecolor=None,  # 想要白底就設 None
     )
-    print(b64)
+    try:
+        print(b64)
+    except BrokenPipeError:
+        # 處理管道被提前關閉的情況（例如 head, grep 等命令）
+        pass

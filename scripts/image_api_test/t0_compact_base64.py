@@ -120,4 +120,8 @@ if __name__ == "__main__":
     # Example: 直接印 base64（貼進你的 JSON "image"）
     # b64 = render_compact_base64_from_api(product="stock")
     b64 = render_compact_base64_from_api(product="conbond")
-    print(b64)
+    try:
+        print(b64)
+    except BrokenPipeError:
+        # 處理管道被提前關閉的情況（例如 head, grep 等命令）
+        pass
