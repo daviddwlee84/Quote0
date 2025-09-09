@@ -147,8 +147,12 @@ if __name__ == "__main__":
         # facecolor="#E0E0E0",  # 想要白底就設 None
         facecolor=None,  # 想要白底就設 None
     )
-    try:
-        print(b64)
-    except BrokenPipeError:
-        # 處理管道被提前關閉的情況（例如 head, grep 等命令）
-        pass
+    # Flush to prevent broken pipe
+    # [Python Print Flush: Complete Guide | by ryan | Medium](https://medium.com/@ryan_forrester_/python-print-flush-complete-guide-b10ab1512390)
+    # https://chatgpt.com/share/68bffdd2-2e20-8012-bf7a-3a0cac109328
+    print(b64, flush=True)
+    # try:
+    #     print(b64)
+    # except BrokenPipeError:
+    #     # 處理管道被提前關閉的情況（例如 head, grep 等命令）
+    #     pass
