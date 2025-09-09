@@ -21,7 +21,7 @@ NOTE: to test if the display is normal you can use the script [checkerboard_gray
 ## API
 
 - [了解 API](https://dot.mindreset.tech/docs/server/template/api)
-  - [图像 API](https://dot.mindreset.tech/docs/server/template/api/image_api)
+  - [图像 API](https://dot.mindreset.tech/docs/server/template/api/image_api) (296px × 152px)
   - [文本 API](https://dot.mindreset.tech/docs/server/template/api/text_api)
 
 ## Resources
