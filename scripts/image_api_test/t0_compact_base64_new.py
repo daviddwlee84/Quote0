@@ -91,7 +91,8 @@ def render_compact_base64_from_api(
     fig.text(
         0.02,
         0.92,
-        f"{product.capitalize()} Strategy Performance",
+        # f"{product.capitalize()} Strategy Performance\n({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})",
+        f"{product.capitalize()} Strategy Performance ({datetime.now().strftime('%m/%d %H:%M')})",
         fontsize=8,
         weight="bold",
     )
@@ -140,8 +141,8 @@ def render_compact_base64_from_api(
 if __name__ == "__main__":
     # 範例：忽略時間 + 0 軸 + 灰底
     b64 = render_compact_base64_from_api(
-        product="stock",
-        # product="conbond",
+        # product="stock",
+        product="conbond",
         show_zero_axis=True,
         x_mode="index",  # 改成 "time" 會依實際時間間隔
         # facecolor="#E0E0E0",  # 想要白底就設 None
