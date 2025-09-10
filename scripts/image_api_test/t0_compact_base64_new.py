@@ -49,12 +49,21 @@ def _parse_series(data):
         sellMkt_vals.append(sm)
 
     turnover_vals = [b + s for b, s in zip(buyMkt_vals, sellMkt_vals)]
-    active_turnover_vals = [b - s for b, s in zip(buyMkt_vals, sellMkt_vals)]
+    # 計算 commission fee: 萬分之0.5 * total turnover
+    commission_fee_vals = [turnover * 0.00005 for turnover in turnover_vals]
+    # active turnover = (buy - sell) + settle_profit - commission_fee
+    active_turnover_vals = [
+        (b - s) + sp + cf
+        for b, s, sp, cf in zip(
+            buyMkt_vals, sellMkt_vals, settleProfit_vals, commission_fee_vals
+        )
+    ]
     latest_total_profit = totalProfit_vals[-1] if totalProfit_vals else 0.0
     latest_settle_profit = settleProfit_vals[-1] if settleProfit_vals else 0.0
     latest_float_profit = floatProfit_vals[-1] if floatProfit_vals else 0.0
     latest_total_turnover = turnover_vals[-1] if turnover_vals else 0.0
     latest_active_turnover = active_turnover_vals[-1] if active_turnover_vals else 0.0
+    latest_commission_fee = commission_fee_vals[-1] if commission_fee_vals else 0.0
     rate_of_return_bp = (
         (latest_total_profit / latest_total_turnover * 10000)
         if latest_total_turnover
@@ -71,6 +80,7 @@ def _parse_series(data):
             return_bp=rate_of_return_bp,
             turnover=latest_total_turnover,
             active_turnover=latest_active_turnover,
+            commission_fee=latest_commission_fee,
         ),
     }
 
