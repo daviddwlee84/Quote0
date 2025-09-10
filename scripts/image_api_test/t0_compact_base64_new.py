@@ -10,6 +10,16 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates  # for "time" x_mode
 
 
+def _format_large_number(value: float) -> str:
+    """Format large numbers with K (thousand) or M (million) suffix."""
+    if abs(value) >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M"
+    elif abs(value) >= 1_000:
+        return f"{value / 1_000:.1f}K"
+    else:
+        return f"{value:,.0f}"
+
+
 def _fetch_t0_json(product: Literal["stock", "conbond"] = "stock"):
     url = f"http://192.168.2.{119 if product=='conbond' else 201}:8001/statistical/t0profit/cash"
     r = requests.get(url, timeout=5)
@@ -39,10 +49,12 @@ def _parse_series(data):
         sellMkt_vals.append(sm)
 
     turnover_vals = [b + s for b, s in zip(buyMkt_vals, sellMkt_vals)]
+    active_turnover_vals = [b - s for b, s in zip(buyMkt_vals, sellMkt_vals)]
     latest_total_profit = totalProfit_vals[-1] if totalProfit_vals else 0.0
     latest_settle_profit = settleProfit_vals[-1] if settleProfit_vals else 0.0
     latest_float_profit = floatProfit_vals[-1] if floatProfit_vals else 0.0
     latest_total_turnover = turnover_vals[-1] if turnover_vals else 0.0
+    latest_active_turnover = active_turnover_vals[-1] if active_turnover_vals else 0.0
     rate_of_return_bp = (
         (latest_total_profit / latest_total_turnover * 10000)
         if latest_total_turnover
@@ -57,6 +69,8 @@ def _parse_series(data):
             settle=latest_settle_profit,
             float=latest_float_profit,
             return_bp=rate_of_return_bp,
+            turnover=latest_total_turnover,
+            active_turnover=latest_active_turnover,
         ),
     }
 
@@ -100,6 +114,10 @@ def render_compact_base64_from_api(
     fig.text(0.35, 0.78, f"Settle: {m['settle']:,.0f}", fontsize=8)
     fig.text(0.68, 0.78, f"Float: {m['float']:,.0f}", fontsize=8)
     fig.text(0.02, 0.64, f"Return: {m['return_bp']:.2f} bp", fontsize=8)
+    fig.text(0.35, 0.64, f"Turnover: {_format_large_number(m['turnover'])}", fontsize=7)
+    fig.text(
+        0.68, 0.64, f"Active: {_format_large_number(m['active_turnover'])}", fontsize=7
+    )
 
     # --- 收益曲線（下方） ---
     ax = fig.add_axes([0.06, 0.08, 0.90, 0.50])
