@@ -72,11 +72,17 @@ class Image:
     """Don't refresh the display immediately after sending"""
 
     # Image-specific options
+
+    # --- Image source options ---
     file: Optional[Path] = None
     """Path to image file"""
 
     preset: Optional[PresetImageName] = None
     """Use a preset test image"""
+
+    base64: Optional[str] = None
+    """PNG Base64 encoded image string (alternative to --file and --preset)"""
+    # ----------------------------
 
     border: BorderColor = BorderColor.WHITE
     """Border color (WHITE=0, BLACK=1)"""
@@ -154,12 +160,16 @@ def image_command(config: Image) -> None:
         )
         sys.exit(1)
 
-    if not config.file and not config.preset:
-        print("❌ Error: Either --file or --preset is required")
+    # Validate that exactly one of file, preset, or base64 is provided
+    image_sources = [config.file, config.preset, config.base64]
+    provided_sources = [source for source in image_sources if source is not None]
+
+    if len(provided_sources) == 0:
+        print("❌ Error: One of --file, --preset, or --base64 is required")
         sys.exit(1)
 
-    if config.file and config.preset:
-        print("❌ Error: Cannot use both --file and --preset, choose one")
+    if len(provided_sources) > 1:
+        print("❌ Error: Can only use one of --file, --preset, or --base64")
         sys.exit(1)
 
     # Get image base64
@@ -192,6 +202,11 @@ def image_command(config: Image) -> None:
         except Exception as e:
             print(f"❌ Error loading image file: {e}")
             sys.exit(1)
+
+    elif config.base64:
+        print("📄 Using provided base64 image data")
+        image_base64 = config.base64
+        print(f"📏 Base64 data length: {len(image_base64)} characters")
 
     # Create client and send image
     client = Quote0(config.api_key, config.device_id)
