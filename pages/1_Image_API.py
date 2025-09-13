@@ -125,22 +125,70 @@ with col1:
     # API options - Always show regardless of image source
     st.header("⚙️ API Options")
 
-    col_opt1, col_opt2 = st.columns(2)
-    with col_opt1:
+    # Basic options
+    col_basic1, col_basic2 = st.columns(2)
+    with col_basic1:
         border = st.number_input(
             "Border size",
             min_value=0,
-            max_value=10,
+            max_value=1,
             value=0,
-            help="Border around the image in pixels",
+            help="0 = white border, 1 = black border",
         )
 
-    with col_opt2:
+    with col_basic2:
         refresh_now = st.checkbox(
             "Refresh immediately",
             value=True,
             help="Whether to refresh the display immediately after sending",
         )
+
+    # Initialize variables outside expander
+    link = ""
+    dither_type = "Default"
+    dither_kernel = "FLOYD_STEINBERG"
+
+    # Advanced options
+    with st.expander("🎨 Advanced Options"):
+        # Link option
+        link = st.text_input(
+            "NFC Link (optional)",
+            placeholder="https://example.com or app://scheme",
+            help="URL to open when NFC is touched",
+        )
+
+        # Dithering options
+        col_dither1, col_dither2 = st.columns(2)
+
+        with col_dither1:
+            dither_type = st.selectbox(
+                "Dithering Type",
+                ["Default", "DIFFUSION", "ORDERED", "NONE"],
+                index=0,
+                help="Image dithering algorithm type",
+            )
+
+        with col_dither2:
+            # Only show dither kernel if DIFFUSION is selected
+            if dither_type == "DIFFUSION":
+                dither_kernel = st.selectbox(
+                    "Dithering Algorithm",
+                    [
+                        "FLOYD_STEINBERG",
+                        "ATKINSON",
+                        "BURKES",
+                        "SIERRA2",
+                        "STUCKI",
+                        "JARVIS_JUDICE_NINKE",
+                        "DIFFUSION_ROW",
+                        "DIFFUSION_COLUMN",
+                        "DIFFUSION_2D",
+                    ],
+                    index=0,
+                    help="Specific dithering algorithm (only for DIFFUSION type)",
+                )
+            else:
+                dither_kernel = "FLOYD_STEINBERG"  # Default value, won't be used
 
     # Send button - Always show if we have image source
     has_image = uploaded_file is not None or preset_base64 is not None
@@ -168,14 +216,27 @@ with col1:
                     base64_image = preset_base64
 
                 if base64_image:
+                    # Prepare optional parameters
+                    api_kwargs = {
+                        "api_key": api_key,
+                        "device_id": device_id,
+                        "image_base64": base64_image,
+                        "border": border,
+                        "refresh_now": refresh_now,
+                    }
+
+                    # Add link if provided
+                    if link.strip():
+                        api_kwargs["link"] = link.strip()
+
+                    # Add dithering parameters if not default
+                    if dither_type != "Default":
+                        api_kwargs["dither_type"] = dither_type
+                        if dither_type == "DIFFUSION":
+                            api_kwargs["dither_kernel"] = dither_kernel
+
                     # Call API
-                    response = call_image_api(
-                        api_key=api_key,
-                        device_id=device_id,
-                        image_base64=base64_image,
-                        border=border,
-                        refresh_now=refresh_now,
-                    )
+                    response = call_image_api(**api_kwargs)
 
                     # Show response
                     show_api_response(response)

@@ -68,6 +68,9 @@ def call_image_api(
     image_base64: str,
     border: int = 0,
     refresh_now: bool = True,
+    link: Optional[str] = None,
+    dither_type: Optional[str] = None,
+    dither_kernel: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Call the Quote/0 Image API
@@ -78,6 +81,9 @@ def call_image_api(
         image_base64: Base64 encoded image string
         border: Border size (default: 0)
         refresh_now: Whether to refresh display immediately (default: True)
+        link: Optional link for NFC touch (default: None)
+        dither_type: Optional dithering type (DIFFUSION, ORDERED, NONE) (default: None)
+        dither_kernel: Optional dithering algorithm (only used when dither_type is DIFFUSION) (default: None)
 
     Returns:
         API response as dictionary
@@ -92,6 +98,14 @@ def call_image_api(
         "image": image_base64,
         "border": border,
     }
+
+    # Add optional parameters only if they are provided
+    if link is not None:
+        payload["link"] = link
+    if dither_type is not None:
+        payload["ditherType"] = dither_type
+    if dither_kernel is not None:
+        payload["ditherKernel"] = dither_kernel
 
     try:
         response = requests.post(url, json=payload, headers=headers)
