@@ -25,7 +25,8 @@ st.title("📷 Image API")
 st.markdown("Upload and display images on your Quote/0 device (296px × 152px)")
 
 # Setup API credentials in sidebar
-api_key, device_id = setup_api_credentials()
+with st.sidebar:
+    api_key, device_id = setup_api_credentials()
 
 # Add sidebar info
 st.sidebar.markdown("---")

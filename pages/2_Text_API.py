@@ -21,7 +21,8 @@ st.title("📝 Text API")
 st.markdown("Send text content to your Quote/0 device")
 
 # Setup API credentials in sidebar
-api_key, device_id = setup_api_credentials()
+with st.sidebar:
+    api_key, device_id = setup_api_credentials()
 
 # Add sidebar info
 st.sidebar.markdown("---")

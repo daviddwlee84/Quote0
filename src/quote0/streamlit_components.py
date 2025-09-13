@@ -10,7 +10,7 @@ from .models import ApiResponse
 
 def setup_api_credentials() -> tuple[str, str]:
     """
-    Setup API credentials in sidebar with environment variables as defaults.
+    Setup API credentials with environment variables as defaults.
     Returns tuple of (api_key, device_id)
     """
     try:
@@ -20,37 +20,40 @@ def setup_api_credentials() -> tuple[str, str]:
     except ImportError:
         pass
 
-    st.sidebar.header("🔑 API Configuration")
+    st.header("🔑 API Configuration")
 
     # Get default values from environment variables
     default_api_key = os.getenv("DOT_API_KEY", "")
     default_device_id = os.getenv("DOT_DEVICE_ID", "")
 
     # Input fields in sidebar
-    api_key = st.sidebar.text_input(
+    api_key = st.text_input(
         "DOT API Key",
-        value=default_api_key,
+        value=st.session_state.get("default_api_key", default_api_key),
         type="password",
         help="Your Quote/0 API key from the mobile app",
     )
 
-    device_id = st.sidebar.text_input(
+    device_id = st.text_input(
         "DOT Device ID",
-        value=default_device_id,
+        value=st.session_state.get("default_device_id", default_device_id),
         help="Your Quote/0 device ID from the mobile app",
     )
 
     # Validation
     if not api_key:
-        st.sidebar.warning("⚠️ Please enter your API key")
+        st.warning("⚠️ Please enter your API key")
     if not device_id:
-        st.sidebar.warning("⚠️ Please enter your device ID")
+        st.warning("⚠️ Please enter your device ID")
 
     # Status indicator
     if api_key and device_id:
-        st.sidebar.success("✅ API credentials configured")
+        st.success("✅ API credentials configured")
+
+        st.session_state.default_api_key = api_key
+        st.session_state.default_device_id = device_id
     else:
-        st.sidebar.error("❌ API credentials missing")
+        st.error("❌ API credentials missing")
 
     return api_key, device_id
 
