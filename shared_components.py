@@ -125,7 +125,14 @@ def call_image_api(
 
 
 def call_text_api(
-    api_key: str, device_id: str, text_content: str, refresh_now: bool = True
+    api_key: str,
+    device_id: str,
+    refresh_now: bool = True,
+    title: Optional[str] = None,
+    message: Optional[str] = None,
+    signature: Optional[str] = None,
+    icon: Optional[str] = None,
+    link: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Call the Quote/0 Text API
@@ -133,8 +140,12 @@ def call_text_api(
     Args:
         api_key: DOT API key
         device_id: DOT device ID
-        text_content: Text content to display
         refresh_now: Whether to refresh display immediately (default: True)
+        title: Text title to display (optional)
+        message: Text content to display (optional)
+        signature: Text signature to display (optional)
+        icon: Base64 encoded PNG icon data (40px*40px) (optional)
+        link: HTTP/HTTPS link or Scheme URL for NFC touch (optional)
 
     Returns:
         API response as dictionary
@@ -143,7 +154,19 @@ def call_text_api(
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    payload = {"refreshNow": refresh_now, "deviceId": device_id, "text": text_content}
+    payload = {"refreshNow": refresh_now, "deviceId": device_id}
+
+    # Add optional parameters only if they are provided
+    if title is not None:
+        payload["title"] = title
+    if message is not None:
+        payload["message"] = message
+    if signature is not None:
+        payload["signature"] = signature
+    if icon is not None:
+        payload["icon"] = icon
+    if link is not None:
+        payload["link"] = link
 
     try:
         response = requests.post(url, json=payload, headers=headers)

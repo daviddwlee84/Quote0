@@ -32,84 +32,81 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.header("✍️ Text Content")
 
-    # Text input options
-    input_mode = st.radio("Input mode:", ["Single line", "Multi-line", "Template"])
+    # Text API fields
+    st.markdown("### 📝 Text Fields")
 
+    col_title, col_message = st.columns(2)
+
+    with col_title:
+        title = st.text_input(
+            "Title",
+            placeholder="Optional title...",
+            help="Text title displayed on screen",
+        )
+
+    with col_message:
+        message = st.text_area(
+            "Message",
+            placeholder="Main text content...",
+            height=100,
+            help="Main text content displayed on screen",
+        )
+
+    # Additional fields
+    col_sig, col_link = st.columns(2)
+
+    with col_sig:
+        signature = st.text_input(
+            "Signature",
+            placeholder="Optional signature...",
+            help="Text signature displayed on screen",
+        )
+
+    with col_link:
+        link = st.text_input(
+            "Link (NFC Touch)",
+            placeholder="https://example.com or scheme://...",
+            help="URL or scheme for NFC touch interaction",
+        )
+
+    # Icon upload
+    st.markdown("### 🎨 Icon (Optional)")
+    icon_file = st.file_uploader(
+        "Upload PNG icon (40×40px recommended)",
+        type=["png"],
+        help="Base64 encoded PNG icon displayed in bottom-left corner",
+    )
+
+    # Process icon
+    icon_base64 = ""
+    if icon_file:
+        try:
+            import base64
+
+            icon_bytes = icon_file.read()
+            icon_base64 = base64.b64encode(icon_bytes).decode("utf-8")
+            st.success("✅ Icon uploaded and encoded")
+        except Exception as e:
+            st.error(f"❌ Error processing icon: {str(e)}")
+
+    # Combine content for preview
     text_content = ""
-
-    if input_mode == "Single line":
-        text_content = st.text_input(
-            "Enter text to display:",
-            placeholder="Your text here...",
-            help="Single line of text to display on Quote/0",
-        )
-
-    elif input_mode == "Multi-line":
-        text_content = st.text_area(
-            "Enter text to display:",
-            placeholder="Your multi-line text here...\nYou can use multiple lines\nfor better formatting",
-            height=150,
-            help="Multi-line text with line breaks",
-        )
-
-    elif input_mode == "Template":
-        template_type = st.selectbox(
-            "Choose template:",
-            ["Custom", "Quote", "Status Update", "Weather", "Reminder"],
-        )
-
-        if template_type == "Quote":
-            quote_text = st.text_input("Quote:", placeholder="Enter the quote...")
-            quote_author = st.text_input("Author:", placeholder="- Author name")
-            if quote_text:
-                text_content = (
-                    f'"{quote_text}"\n\n{quote_author if quote_author else ""}'
-                )
-
-        elif template_type == "Status Update":
-            status = st.text_input("Status:", placeholder="What's happening?")
-            timestamp = st.checkbox("Include timestamp", value=True)
-            if status:
-                text_content = status
-                if timestamp:
-                    from datetime import datetime
-
-                    current_time = datetime.now().strftime("%m/%d %H:%M")
-                    text_content += f"\n\n{current_time}"
-
-        elif template_type == "Weather":
-            location = st.text_input("Location:", placeholder="City, Country")
-            temp = st.text_input("Temperature:", placeholder="e.g., 22°C")
-            condition = st.text_input("Condition:", placeholder="e.g., Sunny")
-            if location and temp:
-                text_content = f"{location}\n{temp}"
-                if condition:
-                    text_content += f"\n{condition}"
-
-        elif template_type == "Reminder":
-            reminder_text = st.text_input("Reminder:", placeholder="Don't forget to...")
-            time_info = st.text_input("Time (optional):", placeholder="e.g., 3:00 PM")
-            if reminder_text:
-                text_content = f"⏰ REMINDER\n\n{reminder_text}"
-                if time_info:
-                    text_content += f"\n\n{time_info}"
-
-        else:  # Custom
-            text_content = st.text_area(
-                "Custom template:",
-                placeholder="Create your own text format...",
-                height=150,
-            )
+    if title:
+        text_content += title + "\n\n"
+    if message:
+        text_content += message
+    if signature:
+        text_content += "\n\n" + signature
 
     # Show character count
-    if text_content:
+    if text_content.strip():
         char_count = len(text_content)
         line_count = text_content.count("\n") + 1
         st.info(f"📊 {char_count} characters, {line_count} lines")
 
         # Preview
         st.markdown("**Preview:**")
-        st.code(text_content, language=None)
+        st.code(text_content.strip(), language=None)
 
     # API options
     st.header("⚙️ API Options")
@@ -121,23 +118,34 @@ with col1:
     )
 
     # Send button
+    # Check if at least one text field is filled
+    has_content = bool(
+        title.strip() or message.strip() or signature.strip() or icon_base64
+    )
+
     if st.button(
         "🚀 Send to Quote/0",
         type="primary",
-        disabled=not (api_key and device_id and text_content),
+        disabled=not (api_key and device_id and has_content),
     ):
         if not api_key or not device_id:
             st.error("❌ Please configure your API credentials in the sidebar first!")
-        elif not text_content:
-            st.error("❌ Please enter some text content!")
+        elif not has_content:
+            st.error(
+                "❌ Please enter at least one text field (title, message, signature) or upload an icon!"
+            )
         else:
             with st.spinner("Sending text to Quote/0..."):
-                # Call API
+                # Call API with individual fields
                 response = call_text_api(
                     api_key=api_key,
                     device_id=device_id,
-                    text_content=text_content,
                     refresh_now=refresh_now,
+                    title=title if title.strip() else None,
+                    message=message if message.strip() else None,
+                    signature=signature if signature.strip() else None,
+                    icon=icon_base64 if icon_base64 else None,
+                    link=link if link.strip() else None,
                 )
 
                 # Show response
@@ -146,7 +154,7 @@ with col1:
 with col2:
     st.header("📱 Display Preview")
 
-    if text_content:
+    if has_content:
         st.markdown("**How it might look on Quote/0:**")
 
         # Create a styled preview
@@ -173,6 +181,11 @@ with col2:
 
         st.markdown(preview_style, unsafe_allow_html=True)
 
+        # Show icon preview if uploaded
+        if icon_base64:
+            st.markdown("**Icon Preview:**")
+            st.image(f"data:image/png;base64,{icon_base64}", width=40)
+
         # Tips for optimization
         if len(text_content) > 200:
             st.warning("⚠️ Long text may not display well on the small screen")
@@ -181,23 +194,33 @@ with col2:
             st.warning("⚠️ Too many lines may not fit on the display")
 
     else:
-        st.info("👆 Enter text to see preview")
+        st.info("👆 Enter text fields to see preview")
 
-    # Sample texts
+    # Quick examples
     st.markdown("---")
-    st.markdown("**💡 Sample texts:**")
+    st.markdown("**💡 Quick Examples:**")
 
-    sample_texts = {
-        "Simple Quote": '"The best time to plant a tree was 20 years ago. The second best time is now."\n\n- Chinese Proverb',
-        "Status": "Currently working on:\n• Project A\n• Code review\n• Meeting at 3 PM",
-        "Weather": "San Francisco\n22°C\nSunny\n\nPerfect day! ☀️",
-        "Reminder": "⏰ REMINDER\n\nTeam standup\n9:00 AM\n\nDon't be late!",
-    }
+    col_ex1, col_ex2 = st.columns(2)
 
-    for name, sample in sample_texts.items():
-        if st.button(f"Load: {name}", key=f"sample_{name}"):
-            # This would need to be handled with session state
-            st.info(f"Sample text for {name}:\n\n{sample}")
+    with col_ex1:
+        if st.button("📝 Simple Message"):
+            st.info("**Example:** Title: 'Hello', Message: 'World from Quote/0!'")
+
+        if st.button("🌤️ Weather Update"):
+            st.info(
+                "**Example:** Title: 'Weather', Message: 'San Francisco\\n22°C\\nSunny', Signature: 'Today'"
+            )
+
+    with col_ex2:
+        if st.button("⏰ Reminder"):
+            st.info(
+                "**Example:** Title: 'REMINDER', Message: 'Team meeting', Signature: '3:00 PM'"
+            )
+
+        if st.button("📊 Status"):
+            st.info(
+                "**Example:** Title: 'Status', Message: 'Working on:\\n• Task A\\n• Task B', Signature: 'Updated now'"
+            )
 
 # Footer info
 st.markdown("---")

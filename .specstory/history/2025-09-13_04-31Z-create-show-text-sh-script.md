@@ -407,3 +407,565 @@ The script successfully tested and sent a message to your device (as shown by th
 
 ---
 
+_**User (2025-09-13 03:27Z)**_
+
+
+|字段名|类型|必填|默认值|说明|用途|
+|---|---|---|---|---|---|
+|`refreshNow`|`bool`|否|`true`|是否立刻显示内容|控制内容的显示时机|
+|`deviceId`|`string`|是||设备序列号|分辨不同的设备|
+|`title`|`string`|否||文本标题|显示在屏幕上的标题|
+|`message`|`string`|否||文本内容|显示在屏幕上的内容|
+|`signature`|`string`|否||文本签名|显示在屏幕上的签名|
+|`icon`|`string`|否||base64 编码 PNG 图标数据（40px*40px）|显示在屏幕左下角上的图标|
+|`link`|`string`|否||http/https 链接或 Scheme Url|碰一碰跳转的内容|
+
+目前我們Streamlit Text API似乎沒有 follow API標準
+@2_Text_API.py @shared_components.py  幫忙修正一下
+
+---
+
+_**Assistant**_
+
+<think><details><summary>Thought Process</summary>看起來用戶發現了Text API的問題。讓我檢查一下API文檔和當前的實現。
+
+
+## Investigating Text API Issue  
+- The user seems to have encountered a problem with the Text API; let's check the API documentation for clarity.  
+- The documentation indicates the API parameters include: refreshNow (bool, defaults to true) and deviceId (string, required).</details></think>
+
+---
+
+
+
+---
+
+<think><details><summary>Thought Process</summary>現在我需要修改shared_components.py中的call_text_api函數，讓它支持所有API字段，而不是只有text_content。
+</details></think>
+
+---
+
+<details><summary>Edit file: shared_components.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 8, lines removed: 1
+
+```diff
+@@ -126,5 +126,12 @@
+  
+  def call_text_api(
+-     api_key: str, device_id: str, text_content: str, refresh_now: bool = True
++     api_key: str,
++     device_id: str,
++     refresh_now: bool = True,
++     title: Optional[str] = None,
++     message: Optional[str] = None,
++     signature: Optional[str] = None,
++     icon: Optional[str] = None,
++     link: Optional[str] = None,
+  ) -> Dict[str, Any]:
+      """
+```
+
+**Chunk 2**
+Lines added: 5, lines removed: 1
+
+```diff
+@@ -134,6 +141,10 @@
+          api_key: DOT API key
+          device_id: DOT device ID
+-         text_content: Text content to display
+          refresh_now: Whether to refresh display immediately (default: True)
++         title: Text title to display (optional)
++         message: Text content to display (optional)
++         signature: Text signature to display (optional)
++         icon: Base64 encoded PNG icon data (40px*40px) (optional)
++         link: HTTP/HTTPS link or Scheme URL for NFC touch (optional)
+  
+      Returns:
+```
+
+**Chunk 3**
+Lines added: 13, lines removed: 1
+
+```diff
+@@ -144,5 +155,17 @@
+      headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+  
+-     payload = {"refreshNow": refresh_now, "deviceId": device_id, "text": text_content}
++     payload = {"refreshNow": refresh_now, "deviceId": device_id}
++ 
++     # Add optional parameters only if they are provided
++     if title is not None:
++         payload["title"] = title
++     if message is not None:
++         payload["message"] = message
++     if signature is not None:
++         payload["signature"] = signature
++     if icon is not None:
++         payload["icon"] = icon
++     if link is not None:
++         payload["link"] = link
+  
+      try:
+```
+
+</details>
+
+---
+
+<think><details><summary>Thought Process</summary>現在我需要更新2_Text_API.py來使用新的API函數。當前的實現只處理text_content，但我需要讓它支持title, message, signature, icon, link等字段。
+
+
+## Updating API Implementation  
+- The current 2_Text_API.py needs changes to integrate new API functions for additional fields.  
+- It must now support title, message, signature, icon, and link, not just text_content.</details></think>
+
+---
+
+<details><summary>Edit file: pages/2_Text_API.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 61, lines removed: 65
+
+```diff
+@@ -33,75 +33,71 @@
+      st.header("✍️ Text Content")
+  
+-     # Text input options
+-     input_mode = st.radio("Input mode:", ["Single line", "Multi-line", "Template"])
+- 
+-     text_content = ""
+- 
+-     if input_mode == "Single line":
+-         text_content = st.text_input(
+-             "Enter text to display:",
+-             placeholder="Your text here...",
+-             help="Single line of text to display on Quote/0",
++     # Text API fields
++     st.markdown("### 📝 Text Fields")
++ 
++     col_title, col_message = st.columns(2)
++ 
++     with col_title:
++         title = st.text_input(
++             "Title",
++             placeholder="Optional title...",
++             help="Text title displayed on screen",
+          )
+  
+-     elif input_mode == "Multi-line":
+-         text_content = st.text_area(
+-             "Enter text to display:",
+-             placeholder="Your multi-line text here...\nYou can use multiple lines\nfor better formatting",
+-             height=150,
+-             help="Multi-line text with line breaks",
++     with col_message:
++         message = st.text_area(
++             "Message",
++             placeholder="Main text content...",
++             height=100,
++             help="Main text content displayed on screen",
+          )
+  
+-     elif input_mode == "Template":
+-         template_type = st.selectbox(
+-             "Choose template:",
+-             ["Custom", "Quote", "Status Update", "Weather", "Reminder"],
+-         )
+- 
+-         if template_type == "Quote":
+-             quote_text = st.text_input("Quote:", placeholder="Enter the quote...")
+-             quote_author = st.text_input("Author:", placeholder="- Author name")
+-             if quote_text:
+-                 text_content = (
+-                     f'"{quote_text}"\n\n{quote_author if quote_author else ""}'
+-                 )
+- 
+-         elif template_type == "Status Update":
+-             status = st.text_input("Status:", placeholder="What's happening?")
+-             timestamp = st.checkbox("Include timestamp", value=True)
+-             if status:
+-                 text_content = status
+-                 if timestamp:
+-                     from datetime import datetime
+- 
+-                     current_time = datetime.now().strftime("%m/%d %H:%M")
+-                     text_content += f"\n\n{current_time}"
+- 
+-         elif template_type == "Weather":
+-             location = st.text_input("Location:", placeholder="City, Country")
+-             temp = st.text_input("Temperature:", placeholder="e.g., 22°C")
+-             condition = st.text_input("Condition:", placeholder="e.g., Sunny")
+-             if location and temp:
+-                 text_content = f"{location}\n{temp}"
+-                 if condition:
+-                     text_content += f"\n{condition}"
+- 
+-         elif template_type == "Reminder":
+-             reminder_text = st.text_input("Reminder:", placeholder="Don't forget to...")
+-             time_info = st.text_input("Time (optional):", placeholder="e.g., 3:00 PM")
+-             if reminder_text:
+-                 text_content = f"⏰ REMINDER\n\n{reminder_text}"
+-                 if time_info:
+-                     text_content += f"\n\n{time_info}"
+- 
+-         else:  # Custom
+-             text_content = st.text_area(
+-                 "Custom template:",
+-                 placeholder="Create your own text format...",
+-                 height=150,
+-             )
++     # Additional fields
++     col_sig, col_link = st.columns(2)
++ 
++     with col_sig:
++         signature = st.text_input(
++             "Signature",
++             placeholder="Optional signature...",
++             help="Text signature displayed on screen",
++         )
++ 
++     with col_link:
++         link = st.text_input(
++             "Link (NFC Touch)",
++             placeholder="https://example.com or scheme://...",
++             help="URL or scheme for NFC touch interaction",
++         )
++ 
++     # Icon upload
++     st.markdown("### 🎨 Icon (Optional)")
++     icon_file = st.file_uploader(
++         "Upload PNG icon (40×40px recommended)",
++         type=["png"],
++         help="Base64 encoded PNG icon displayed in bottom-left corner",
++     )
++ 
++     # Process icon
++     icon_base64 = ""
++     if icon_file:
++         try:
++             import base64
++             icon_bytes = icon_file.read()
++             icon_base64 = base64.b64encode(icon_bytes).decode("utf-8")
++             st.success("✅ Icon uploaded and encoded")
++         except Exception as e:
++             st.error(f"❌ Error processing icon: {str(e)}")
++ 
++     # Combine content for preview
++     text_content = ""
++     if title:
++         text_content += title + "\n\n"
++     if message:
++         text_content += message
++     if signature:
++         text_content += "\n\n" + signature
+  
+      # Show character count
+-     if text_content:
++     if text_content.strip():
+          char_count = len(text_content)
+          line_count = text_content.count("\n") + 1
+```
+
+**Chunk 2**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -110,5 +106,5 @@
+          # Preview
+          st.markdown("**Preview:**")
+-         st.code(text_content, language=None)
++         st.code(text_content.strip(), language=None)
+  
+      # API options
+```
+
+</details>
+
+---
+
+<think><details><summary>Thought Process</summary>現在我需要更新調用call_text_api的部分，讓它使用新的參數而不是text_content。</details></think>
+
+---
+
+<details><summary>Edit file: pages/2_Text_API.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 12, lines removed: 5
+
+```diff
+@@ -118,21 +118,28 @@
+  
+      # Send button
++     # Check if at least one text field is filled
++     has_content = bool(title.strip() or message.strip() or signature.strip() or icon_base64)
++ 
+      if st.button(
+          "🚀 Send to Quote/0",
+          type="primary",
+-         disabled=not (api_key and device_id and text_content),
++         disabled=not (api_key and device_id and has_content),
+      ):
+          if not api_key or not device_id:
+              st.error("❌ Please configure your API credentials in the sidebar first!")
+-         elif not text_content:
+-             st.error("❌ Please enter some text content!")
++         elif not has_content:
++             st.error("❌ Please enter at least one text field (title, message, signature) or upload an icon!")
+          else:
+              with st.spinner("Sending text to Quote/0..."):
+-                 # Call API
++                 # Call API with individual fields
+                  response = call_text_api(
+                      api_key=api_key,
+                      device_id=device_id,
+-                     text_content=text_content,
+                      refresh_now=refresh_now,
++                     title=title if title.strip() else None,
++                     message=message if message.strip() else None,
++                     signature=signature if signature.strip() else None,
++                     icon=icon_base64 if icon_base64 else None,
++                     link=link if link.strip() else None,
+                  )
+  
+```
+
+</details>
+
+---
+
+<think><details><summary>Thought Process</summary>我需要更新預覽部分，因為現在text_content的邏輯改變了。讓我檢查一下預覽部分的代碼。</details></think>
+
+---
+
+<details><summary>Edit file: pages/2_Text_API.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -150,5 +150,5 @@
+      st.header("📱 Display Preview")
+  
+-     if text_content:
++     if has_content:
+          st.markdown("**How it might look on Quote/0:**")
+  
+```
+
+**Chunk 2**
+Lines added: 5, lines removed: undefined
+
+```diff
+@@ -177,4 +177,9 @@
+          st.markdown(preview_style, unsafe_allow_html=True)
+  
++         # Show icon preview if uploaded
++         if icon_base64:
++             st.markdown("**Icon Preview:**")
++             st.image(f"data:image/png;base64,{icon_base64}", width=40)
++ 
+          # Tips for optimization
+          if len(text_content) > 200:
+```
+
+**Chunk 3**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -185,5 +190,5 @@
+  
+      else:
+-         st.info("👆 Enter text to see preview")
++         st.info("👆 Enter text fields to see preview")
+  
+      # Sample texts
+```
+
+</details>
+
+---
+
+<think><details><summary>Thought Process</summary>現在我需要清理一下示例文本部分，因為現在的UI結構改變了。讓我看看示例文本的部分是否還需要保留或修改。
+</details></think>
+
+---
+
+<details><summary>Edit file: pages/2_Text_API.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 18, lines removed: 14
+
+```diff
+@@ -192,19 +192,23 @@
+          st.info("👆 Enter text fields to see preview")
+  
+-     # Sample texts
++     # Quick examples
+      st.markdown("---")
+-     st.markdown("**💡 Sample texts:**")
+- 
+-     sample_texts = {
+-         "Simple Quote": '"The best time to plant a tree was 20 years ago. The second best time is now."\n\n- Chinese Proverb',
+-         "Status": "Currently working on:\n• Project A\n• Code review\n• Meeting at 3 PM",
+-         "Weather": "San Francisco\n22°C\nSunny\n\nPerfect day! ☀️",
+-         "Reminder": "⏰ REMINDER\n\nTeam standup\n9:00 AM\n\nDon't be late!",
+-     }
+- 
+-     for name, sample in sample_texts.items():
+-         if st.button(f"Load: {name}", key=f"sample_{name}"):
+-             # This would need to be handled with session state
+-             st.info(f"Sample text for {name}:\n\n{sample}")
++     st.markdown("**💡 Quick Examples:**")
++ 
++     col_ex1, col_ex2 = st.columns(2)
++ 
++     with col_ex1:
++         if st.button("📝 Simple Message"):
++             st.info("**Example:** Title: 'Hello', Message: 'World from Quote/0!'")
++ 
++         if st.button("🌤️ Weather Update"):
++             st.info("**Example:** Title: 'Weather', Message: 'San Francisco\\n22°C\\nSunny', Signature: 'Today'")
++ 
++     with col_ex2:
++         if st.button("⏰ Reminder"):
++             st.info("**Example:** Title: 'REMINDER', Message: 'Team meeting', Signature: '3:00 PM'")
++ 
++         if st.button("📊 Status"):
++             st.info("**Example:** Title: 'Status', Message: 'Working on:\\n• Task A\\n• Task B', Signature: 'Updated now'")
+  
+  # Footer info
+```
+
+</details>
+
+---
+
+<think><details><summary>Thought Process</summary>現在讓我檢查一下是否還有linter錯誤。</details></think>
+
+---
+
+
+
+---
+
+<think><details><summary>Thought Process</summary>很好，沒有linter錯誤。現在讓我創建一個todo來總結我所做的更改。</details></think>
+
+---
+
+## Todo List
+
+- [x] Update call_text_api function to support all Text API fields (title, message, signature, icon, link)
+- [x] Redesign Text API page UI to support individual API fields instead of combined text_content
+- [x] Add icon upload functionality with base64 encoding for 40x40px PNG icons
+- [x] Update API call to pass individual fields instead of text_content parameter
+- [x] Update preview and validation logic to work with new field structure
+
+---
+
+<think><details><summary>Thought Process</summary>現在讓我運行一下應用程序來確保一切正常工作。</details></think>
+
+---
+
+```bash
+cd /Users/zhouhanru/Documents/David/Program/Quote0 && python -c "import streamlit as st; print('Streamlit import successful')"
+```
+
+```
+zsh: command not found: python
+```
+
+---
+
+<think><details><summary>Thought Process</summary>看起來python命令不可用，讓我試試python3。</details></think>
+
+---
+
+```bash
+cd /Users/zhouhanru/Documents/David/Program/Quote0 && python3 -c "import streamlit as st; print('Streamlit import successful')"
+```
+
+```
+Streamlit import successful
+```
+
+---
+
+<think><details><summary>Thought Process</summary>很好！現在讓我測試一下我們的shared_components模塊是否能正確導入。</details></think>
+
+---
+
+```bash
+cd /Users/zhouhanru/Documents/David/Program/Quote0 && python3 -c "from shared_components import call_text_api; print('call_text_api function imported successfully')"
+```
+
+```
+/Users/zhouhanru/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020                                                                  
+  warnings.warn(
+call_text_api function imported successfully
+```
+
+---
+
+<think><details><summary>Thought Process</summary>太好了！所有導入都成功。現在讓我總結一下我所做的更改。</details></think>
+
+---
+
+Perfect! I've successfully updated the Text API implementation to follow the official API specification. Here's a summary of the changes made:
+
+## 🔧 **Changes Made:**
+
+### **1. Updated `shared_components.py`:**
+- Modified `call_text_api()` function to accept individual API fields instead of a single `text_content` parameter
+- Now supports all official API fields: `refreshNow`, `deviceId`, `title`, `message`, `signature`, `icon`, `link`
+- Only sends non-None values to avoid sending empty fields
+
+### **2. Redesigned `pages/2_Text_API.py`:**
+- **Replaced** the old template-based input system with individual field inputs:
+  - **Title**: Text input for the title
+  - **Message**: Text area for main content  
+  - **Signature**: Text input for signature
+  - **Link**: Text input for NFC touch URLs/schemes
+  - **Icon**: File uploader for 40×40px PNG icons (auto-converts to base64)
+
+- **Updated** the API call to pass individual fields instead of combined text
+- **Enhanced** the preview to show both text content and icon preview
+- **Improved** validation to check for any content across all fields
+
+## ✅ **API Compliance:**
+
+The implementation now correctly follows the Text API specification:
+
+| Field | Type | Required | Default | Status |
+|-------|------|----------|---------|--------|
+| `refreshNow` | `bool` | No | `true` | ✅ |
+| `deviceId` | `string` | Yes | - | ✅ |
+| `title` | `string` | No | - | ✅ |
+| `message` | `string` | No | - | ✅ |
+| `signature` | `string` | No | - | ✅ |
+| `icon` | `string` | No | - | ✅ |
+| `link` | `string` | No | - | ✅ |
+
+## 🎯 **Benefits:**
+
+1. **Full API Support**: All official Text API fields are now supported
+2. **Better UX**: Users can set each field independently 
+3. **Icon Support**: Upload and display custom icons
+4. **NFC Integration**: Support for touch-to-open links
+5. **Flexible Content**: Mix and match title, message, and signature as needed
+
+The Text API page now properly implements the official specification and provides a much more flexible and complete interface for sending text content to Quote/0 devices! 🚀
+
+---
+
