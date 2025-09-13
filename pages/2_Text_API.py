@@ -24,13 +24,13 @@ st.markdown("Send text content to your Quote/0 device")
 with st.sidebar:
     api_key, device_id = setup_api_credentials()
 
-# Add sidebar info
-st.sidebar.markdown("---")
-st.sidebar.markdown("**💡 Tips**")
-st.sidebar.markdown("• Keep text concise")
-st.sidebar.markdown("• Use line breaks for formatting")
-st.sidebar.markdown("• E-ink displays work best with simple text")
-st.sidebar.markdown("• Consider the 296×152 pixel display size")
+    # Add sidebar info
+    st.markdown("---")
+    st.markdown("**💡 Tips**")
+    st.markdown("• Keep text concise")
+    st.markdown("• Use line breaks for formatting")
+    st.markdown("• E-ink displays work best with simple text")
+    st.markdown("• Consider the 296×152 pixel display size")
 
 # Main content area
 col1, col2 = st.columns([2, 1])

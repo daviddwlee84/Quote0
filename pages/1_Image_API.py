@@ -28,13 +28,13 @@ st.markdown("Upload and display images on your Quote/0 device (296px × 152px)")
 with st.sidebar:
     api_key, device_id = setup_api_credentials()
 
-# Add sidebar info
-st.sidebar.markdown("---")
-st.sidebar.markdown("**💡 Tips**")
-st.sidebar.markdown("• Optimal size: 296×152 pixels")
-st.sidebar.markdown("• Supports: PNG, JPG, JPEG")
-st.sidebar.markdown("• Black & white works best")
-st.sidebar.markdown("• Use high contrast images")
+    # Add sidebar info
+    st.markdown("---")
+    st.markdown("**💡 Tips**")
+    st.markdown("• Optimal size: 296×152 pixels")
+    st.markdown("• Supports: PNG, JPG, JPEG")
+    st.markdown("• Black & white works best")
+    st.markdown("• Use high contrast images")
 
 # Main content area
 col1, col2 = st.columns([1, 1])
@@ -293,34 +293,13 @@ with col2:
             if base64_data:
                 st.text_area(
                     "Base64 encoded image",
-                    value=(
-                        base64_data[:200] + "..."
-                        if len(base64_data) > 200
-                        else base64_data
-                    ),
+                    value=base64_data,
                     height=100,
                     help=f"Full length: {len(base64_data)} characters",
                 )
     else:
         st.info("👆 Upload an image or select a preset to see preview")
 
-        # Show sample images info
-        st.markdown("**Sample test images:**")
-        st.markdown(
-            "You can test with the sample scripts in the `scripts/image_api_test/` directory:"
-        )
-        st.code(
-            """
-# Test with a 1x1 black pixel
-./scripts/image_api_test/1x1_black.sh
-
-# Test with all black image
-./scripts/image_api_test/all_black.sh
-
-# Test with checkerboard pattern
-./scripts/image_api_test/checkerboard_gray.sh
-        """
-        )
 
 # Footer info
 st.markdown("---")
