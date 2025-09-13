@@ -24,15 +24,11 @@ NOTE: to test if the display is normal you can use the script [checkerboard_gray
   - [图像 API](https://dot.mindreset.tech/docs/server/template/api/image_api) (296px × 152px)
   - [文本 API](https://dot.mindreset.tech/docs/server/template/api/text_api)
 
-## Image API Features
+## Todo
 
-✅ **Complete API parameter support:**
-- Border settings (0=white, 1=black)
-- NFC link support for touch interaction
-- Dithering type (DIFFUSION, ORDERED, NONE)
-- Dithering algorithm selection (9 different algorithms)
-- Automatic image optimization (PNG, max 50KB)
-- Preset test images (1×1 black, full black, checkerboard)
+Bug:
+
+- [ ] Somehow Image API's "link" didn't work => NFC is not working
 
 ## Resources
 

@@ -43,3 +43,13 @@ Three preset test images are available:
 - **1×1 Black Pixel**: Minimal test image
 - **All Black (296×152)**: Full-size black image
 - **Checkerboard Gray**: Gray checkerboard pattern
+
+## Image API Features
+
+✅ **Complete API parameter support:**
+- Border settings (0=white, 1=black)
+- NFC link support for touch interaction
+- Dithering type (DIFFUSION, ORDERED, NONE)
+- Dithering algorithm selection (9 different algorithms)
+- Automatic image optimization (PNG, max 50KB)
+- Preset test images (1×1 black, full black, checkerboard)

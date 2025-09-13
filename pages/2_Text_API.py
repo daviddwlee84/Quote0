@@ -37,25 +37,89 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.header("✍️ Text Content")
 
+    # Template selection
+    st.markdown("### 📝 Text Template")
+
+    template_options = {
+        "Custom": {
+            "title": "",
+            "message": "",
+            "signature": "",
+            "link": "",
+        },
+        "Simple Message": {
+            "title": "Hello",
+            "message": "World from Quote/0!",
+            "signature": "",
+            "link": "",
+        },
+        "Weather Update": {
+            "title": "Weather",
+            "message": "San Francisco\n22°C\nSunny",
+            "signature": "Today",
+            "link": "x-apple-weather://",
+        },
+        "Reminder": {
+            "title": "REMINDER",
+            "message": "Team meeting",
+            "signature": "3:00 PM",
+            "link": "x-apple-reminder://",
+        },
+        "Status Update": {
+            "title": "Status",
+            "message": "Working on:\n• Task A\n• Task B",
+            "signature": "Updated now",
+            "link": "https://github.com",
+        },
+        "Quote of the Day": {
+            "title": "Quote",
+            "message": '"The best time to plant a tree was 20 years ago. The second best time is now."',
+            "signature": "- Chinese Proverb",
+            "link": "https://www.brainyquote.com",
+        },
+    }
+
+    selected_template = st.selectbox(
+        "Choose a template:",
+        list(template_options.keys()),
+        help="Select a template to quickly fill in the text fields",
+    )
+
     # Text API fields
     st.markdown("### 📝 Text Fields")
 
     col_title, col_message = st.columns(2)
 
+    # Initialize session state for form fields if not exists
+    if "text_title" not in st.session_state:
+        st.session_state.text_title = ""
+    if "text_message" not in st.session_state:
+        st.session_state.text_message = ""
+    if "text_signature" not in st.session_state:
+        st.session_state.text_signature = ""
+    if "text_link" not in st.session_state:
+        st.session_state.text_link = ""
+
     with col_title:
         title = st.text_input(
             "Title",
+            value=st.session_state.text_title,
             placeholder="Optional title...",
             help="Text title displayed on screen",
+            key="title_input",
         )
+        st.session_state.text_title = title
 
     with col_message:
         message = st.text_area(
             "Message",
+            value=st.session_state.text_message,
             placeholder="Main text content...",
             height=100,
             help="Main text content displayed on screen",
+            key="message_input",
         )
+        st.session_state.text_message = message
 
     # Additional fields
     col_sig, col_link = st.columns(2)
@@ -63,16 +127,33 @@ with col1:
     with col_sig:
         signature = st.text_input(
             "Signature",
+            value=st.session_state.text_signature,
             placeholder="Optional signature...",
             help="Text signature displayed on screen",
+            key="signature_input",
         )
+        st.session_state.text_signature = signature
 
     with col_link:
         link = st.text_input(
             "Link (NFC Touch)",
+            value=st.session_state.text_link,
             placeholder="https://example.com or scheme://...",
             help="URL or scheme for NFC touch interaction",
+            key="link_input",
         )
+        st.session_state.text_link = link
+
+    # Apply template button
+    if selected_template != "Custom":
+        if st.button(f"📝 Apply '{selected_template}' Template", type="secondary"):
+            template_data = template_options[selected_template]
+            st.session_state.text_title = template_data["title"]
+            st.session_state.text_message = template_data["message"]
+            st.session_state.text_signature = template_data["signature"]
+            st.session_state.text_link = template_data["link"]
+            st.success(f"✅ Applied '{selected_template}' template!")
+            st.rerun()
 
     # Icon upload
     st.markdown("### 🎨 Icon (Optional)")
@@ -206,31 +287,6 @@ with col2:
     else:
         st.info("👆 Enter text fields to see preview")
 
-    # Quick examples
-    st.markdown("---")
-    st.markdown("**💡 Quick Examples:**")
-
-    col_ex1, col_ex2 = st.columns(2)
-
-    with col_ex1:
-        if st.button("📝 Simple Message"):
-            st.info("**Example:** Title: 'Hello', Message: 'World from Quote/0!'")
-
-        if st.button("🌤️ Weather Update"):
-            st.info(
-                "**Example:** Title: 'Weather', Message: 'San Francisco\\n22°C\\nSunny', Signature: 'Today'"
-            )
-
-    with col_ex2:
-        if st.button("⏰ Reminder"):
-            st.info(
-                "**Example:** Title: 'REMINDER', Message: 'Team meeting', Signature: '3:00 PM'"
-            )
-
-        if st.button("📊 Status"):
-            st.info(
-                "**Example:** Title: 'Status', Message: 'Working on:\\n• Task A\\n• Task B', Signature: 'Updated now'"
-            )
 
 # Footer info
 st.markdown("---")
