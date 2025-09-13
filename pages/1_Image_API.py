@@ -64,7 +64,7 @@ with col1:
             st.warning("⚠️ Image dimensions may not be optimal for Quote/0 display.")
         
         # Display image preview
-        st.image(image, caption=f"{uploaded_file.name} ({width}×{height})", use_column_width=True)
+        st.image(image, caption=f"{uploaded_file.name} ({width}×{height})", width='stretch')
         
         # API options
         st.header("⚙️ API Options")
@@ -131,7 +131,7 @@ with col2:
         st.image(
             preview_gray, 
             caption=f"Preview (296×152, grayscale)",
-            use_column_width=True
+            width='stretch'
         )
         
         # Show base64 preview

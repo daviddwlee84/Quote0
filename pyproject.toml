@@ -11,3 +11,8 @@ dependencies = [
     "pillow>=10.0.0",
     "requests>=2.31.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ipdb>=0.13.13",
+]

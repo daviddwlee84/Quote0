@@ -84,7 +84,7 @@ def call_image_api(api_key: str, device_id: str, image_base64: str, border: int 
         "image": image_base64,
         "border": border
     }
-    
+
     try:
         response = requests.post(url, json=payload, headers=headers)
         response.raise_for_status()
@@ -98,7 +98,7 @@ def call_image_api(api_key: str, device_id: str, image_base64: str, border: int 
         return {
             "success": False,
             "error": str(e),
-            "message": f"API call failed: {str(e)}"
+            "message": f"API call failed: {str(e)} ({response.text})"
         }
 
 def call_text_api(api_key: str, device_id: str, text_content: str, refresh_now: bool = True) -> Dict[str, Any]:
@@ -140,7 +140,7 @@ def call_text_api(api_key: str, device_id: str, text_content: str, refresh_now: 
         return {
             "success": False,
             "error": str(e),
-            "message": f"API call failed: {str(e)}"
+            "message": f"API call failed: {str(e)} ({response.text})"
         }
 
 def image_to_base64(image_file) -> str:
