@@ -24,3 +24,19 @@
 | `border`       | `number` | 否   | `0`               | `0` 代表白色边框，`1` 代表黑色边框                                                                                                                                      | 屏幕呈现的边框     |
 | `ditherType`   | `string` | 否   | `DIFFUSION`       | 抖动类型（可选：`DIFFUSION`、`ORDERED`、`NONE`）                                                                                                                        | 控制图像的抖动效果 |
 | `ditherKernel` | `string` | 否   | `FLOYD_STEINBERG` | 抖动算法（可选：`THRESHOLD`、`ATKINSON`、`BURKES`、`FLOYD_STEINBERG`、`SIERRA2`、`STUCKI`、`JARVIS_JUDICE_NINKE`、`DIFFUSION_ROW`、`DIFFUSION_COLUMN`、`DIFFUSION2_D`） | 控制图像的抖动算法 |
+
+## Response
+
+| 字段名    | 类型     | 说明     |
+| --------- | -------- | -------- |
+| `code`    | `number` | 状态码   |
+| `message` | `string` | 响应描述 |
+| `result`  | `object` | 处理结果 |
+
+| code  | 含义             | 描述                                                                                                                    |
+| ----- | ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `200` | 成功             | 设备图像 API 内容已切换/数据已更新但未切换内容                                                                          |
+| `400` | 参数错误         | 缺失设备 ID 或格式错误  <br>无效的图像格式  <br>边框参数错误，请提供数字 0 或 1  <br>无效的抖动类型  <br>无效的抖动算法 |
+| `403` | 权限不足         | 您没有权限操作此设备                                                                                                    |
+| `404` | 设备或内容不存在 | 设备不存在或未注册  <br>未添加图像 API 内容                                                                             |
+| `500` | 设备响应失败     | 设备图像 API 内容切换失败                                                                                               |
