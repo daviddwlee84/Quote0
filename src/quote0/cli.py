@@ -27,7 +27,7 @@ class PresetImageName(Enum):
 
 
 @dataclass
-class TextConfig:
+class Text:
     """Send text to Quote/0 device"""
 
     # Global options
@@ -58,7 +58,7 @@ class TextConfig:
 
 
 @dataclass
-class ImageConfig:
+class Image:
     """Send image to Quote/0 device"""
 
     # Global options
@@ -91,7 +91,7 @@ class ImageConfig:
     """Dithering algorithm (only used when dither_type is DIFFUSION)"""
 
 
-def text_command(config: TextConfig) -> None:
+def text_command(config: Text) -> None:
     """Execute text command"""
     if not config.api_key or not config.device_id:
         print("❌ Error: API key and device ID are required")
@@ -145,7 +145,7 @@ def text_command(config: TextConfig) -> None:
         sys.exit(1)
 
 
-def image_command(config: ImageConfig) -> None:
+def image_command(config: Image) -> None:
     """Execute image command"""
     if not config.api_key or not config.device_id:
         print("❌ Error: API key and device ID are required")
@@ -218,11 +218,11 @@ def image_command(config: ImageConfig) -> None:
 def main() -> None:
     """Main CLI entry point"""
     # Use tyro's Union-based subcommand support
-    config = tyro.cli(Union[TextConfig, ImageConfig])
+    config = tyro.cli(Union[Text, Image])
 
-    if isinstance(config, TextConfig):
+    if isinstance(config, Text):
         text_command(config)
-    elif isinstance(config, ImageConfig):
+    elif isinstance(config, Image):
         image_command(config)
     else:
         print("❌ Error: Unknown configuration type")
@@ -230,4 +230,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+
+    from dotenv import load_dotenv, find_dotenv
+
+    load_dotenv(find_dotenv())
+
     main()
