@@ -26,6 +26,7 @@ from shared_components import (
     call_image_api,
     show_api_response,
 )
+from src.quote0.models import BorderColor
 
 st.set_page_config(page_title="Random Curve - Quote/0", page_icon="📈", layout="wide")
 
@@ -339,7 +340,7 @@ with col1:
                         "api_key": api_key,
                         "device_id": device_id,
                         "image_base64": b64_image,
-                        "border": 0,  # Default border for auto-send
+                        "border": BorderColor.WHITE.value,  # Default border for auto-send
                         "refresh_now": True,  # Always refresh for auto-send
                     }
 
@@ -367,12 +368,11 @@ with col2:
     # API options
     st.markdown("### ⚙️ API Options")
 
-    border = st.number_input(
-        "Border size",
-        min_value=0,
-        max_value=1,
-        value=0,
-        help="0 = white border, 1 = black border",
+    border = st.selectbox(
+        "Border Color",
+        options=[BorderColor.WHITE, BorderColor.BLACK],
+        format_func=lambda x: "White" if x == BorderColor.WHITE else "Black",
+        help="Border color for the display",
     )
 
     refresh_now = st.checkbox(
@@ -415,7 +415,7 @@ with col2:
                         "api_key": api_key,
                         "device_id": device_id,
                         "image_base64": b64_image,
-                        "border": border,
+                        "border": border.value,
                         "refresh_now": refresh_now,
                     }
 

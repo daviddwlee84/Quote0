@@ -18,6 +18,7 @@ from shared_components import (
     show_api_response,
     get_preset_images,
 )
+from src.quote0.models import BorderColor
 
 st.set_page_config(page_title="Image API - Quote/0", page_icon="📷", layout="wide")
 
@@ -129,12 +130,11 @@ with col1:
     # Basic options
     col_basic1, col_basic2 = st.columns(2)
     with col_basic1:
-        border = st.number_input(
-            "Border size",
-            min_value=0,
-            max_value=1,
-            value=0,
-            help="0 = white border, 1 = black border",
+        border = st.selectbox(
+            "Border Color",
+            options=[BorderColor.WHITE, BorderColor.BLACK],
+            format_func=lambda x: "White" if x == BorderColor.WHITE else "Black",
+            help="Border color for the display",
         )
 
     with col_basic2:
@@ -222,7 +222,7 @@ with col1:
                         "api_key": api_key,
                         "device_id": device_id,
                         "image_base64": base64_image,
-                        "border": border,
+                        "border": border.value,
                         "refresh_now": refresh_now,
                     }
 
