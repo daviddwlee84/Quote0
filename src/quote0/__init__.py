@@ -3,7 +3,13 @@ Quote/0 Python API Package
 """
 
 from .client import Quote0
-from .models import ImageApiRequest, TextApiRequest, ApiResponse, PresetImage
+from .models import (
+    ImageApiRequest,
+    TextApiRequest,
+    ApiResponse,
+    PresetImage,
+    BorderColor,
+)
 from .utils import image_to_base64, validate_image_dimensions, get_preset_images
 from .streamlit_components import (
     setup_api_credentials,
@@ -19,6 +25,7 @@ __all__ = [
     "TextApiRequest",
     "ApiResponse",
     "PresetImage",
+    "BorderColor",
     "image_to_base64",
     "validate_image_dimensions",
     "get_preset_images",

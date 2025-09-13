@@ -8,6 +8,7 @@ from streamlit.runtime.uploaded_file_manager import UploadedFile
 # Import from the new quote0 package
 from src.quote0 import (
     Quote0,
+    BorderColor,
     setup_api_credentials,
     show_legacy_api_response as show_api_response,
     image_to_base64,
@@ -33,7 +34,7 @@ def call_image_api(
         api_key: DOT API key
         device_id: DOT device ID
         image_base64: Base64 encoded image string
-        border: Border size (default: 0)
+        border: Border color (default: 0=white, 1=black)
         refresh_now: Whether to refresh display immediately (default: True)
         link: Optional link for NFC touch (default: None)
         dither_type: Optional dithering type (DIFFUSION, ORDERED, NONE) (default: None)
@@ -43,9 +44,13 @@ def call_image_api(
         API response as dictionary
     """
     client = Quote0(api_key, device_id)
+
+    # Convert int border to BorderColor enum for backward compatibility
+    border_color = BorderColor.WHITE if border == 0 else BorderColor.BLACK
+
     response = client.send_image(
         image_base64=image_base64,
-        border=border,
+        border=border_color,
         refresh_now=refresh_now,
         link=link,
         dither_type=dither_type,

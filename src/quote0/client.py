@@ -4,7 +4,7 @@ Quote/0 API Client
 
 import requests
 from typing import Optional
-from .models import ImageApiRequest, TextApiRequest, ApiResponse
+from .models import ImageApiRequest, TextApiRequest, ApiResponse, BorderColor
 
 
 class Quote0:
@@ -32,7 +32,7 @@ class Quote0:
     def send_image(
         self,
         image_base64: str,
-        border: int = 0,
+        border: BorderColor = BorderColor.WHITE,
         refresh_now: bool = True,
         link: Optional[str] = None,
         dither_type: Optional[str] = None,
@@ -43,7 +43,7 @@ class Quote0:
 
         Args:
             image_base64: Base64 encoded image string
-            border: Border size (default: 0)
+            border: Border color (default: WHITE=0, BLACK=1)
             refresh_now: Whether to refresh display immediately (default: True)
             link: Optional link for NFC touch (default: None)
             dither_type: Optional dithering type (DIFFUSION, ORDERED, NONE) (default: None)

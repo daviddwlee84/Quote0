@@ -2,8 +2,16 @@
 Pydantic models for Quote/0 API
 """
 
+from enum import IntEnum
 from typing import Optional
 from pydantic import BaseModel, Field
+
+
+class BorderColor(IntEnum):
+    """Border color options for Quote/0 display"""
+
+    WHITE = 0  # 白色边框
+    BLACK = 1  # 黑色边框
 
 
 class ImageApiRequest(BaseModel):
@@ -14,7 +22,9 @@ class ImageApiRequest(BaseModel):
     )
     deviceId: str = Field(..., description="DOT device ID")
     image: str = Field(..., description="Base64 encoded image string")
-    border: int = Field(default=0, description="Border size")
+    border: BorderColor = Field(
+        default=BorderColor.WHITE, description="Border color (0=white, 1=black)"
+    )
     link: Optional[str] = Field(default=None, description="Optional link for NFC touch")
     ditherType: Optional[str] = Field(
         default=None, description="Optional dithering type (DIFFUSION, ORDERED, NONE)"
