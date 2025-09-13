@@ -44,6 +44,7 @@ with st.sidebar:
     st.markdown("• Auto-refresh every 10 seconds")
     st.markdown("• Data grows over time")
     st.markdown("• Configurable parameters")
+    st.markdown("• Optional auto-send to device")
 
     # Configuration options
     st.markdown("---")
@@ -81,6 +82,12 @@ with st.sidebar:
         value=0.002,
         step=0.001,
         help="Overall trend (positive = up, negative = down)",
+    )
+
+    auto_send = st.checkbox(
+        "Auto-send to Quote/0 on refresh",
+        value=False,
+        help="Automatically send curve to device when it refreshes",
     )
 
 
@@ -324,6 +331,30 @@ with col1:
             with col_c:
                 st.metric("Turnover", f"{_format_large_number(m['turnover'])}")
 
+            # Auto-send to Quote/0 if enabled
+            if auto_send and api_key and device_id:
+                try:
+                    # Prepare API call for auto-send
+                    api_kwargs = {
+                        "api_key": api_key,
+                        "device_id": device_id,
+                        "image_base64": b64_image,
+                        "border": 0,  # Default border for auto-send
+                        "refresh_now": True,  # Always refresh for auto-send
+                    }
+
+                    # Call API without showing response to avoid cluttering the UI
+                    response = call_image_api(**api_kwargs)
+
+                    # Show minimal success indicator
+                    if response.get("success"):
+                        st.success("✅ Auto-sent to Quote/0", icon="📡")
+                    else:
+                        st.warning("⚠️ Auto-send failed", icon="⚠️")
+
+                except Exception as e:
+                    st.warning(f"⚠️ Auto-send error: {str(e)[:50]}...", icon="⚠️")
+
         except Exception as e:
             st.error(f"Error generating curve: {e}")
 
@@ -409,6 +440,7 @@ with col2:
     • **Volatility:** {volatility}
     • **Growth Rate:** {growth_rate}
     • **Auto-refresh:** Every 10 seconds
+    • **Auto-send:** {"Enabled" if auto_send else "Disabled"}
     """
     )
 
