@@ -969,3 +969,227 @@ The Text API page now properly implements the official specification and provide
 
 ---
 
+_**User (2025-09-13 03:27Z)**_
+
+現在icon的上傳可以支援更多file type @2_Text_API.py 
+你只需要用我們實現過的 image_to_base64 轉成特定大小即可
+
+---
+
+_**Assistant**_
+
+<think><details><summary>Thought Process</summary>用戶想要讓Text API中的icon上傳支援更多文件類型，而不僅僅是PNG。現在我需要修改 `pages/2_Text_API.py` 中的icon上傳部分，讓它使用已經實現的 `image_to_base64` 函數。
+
+
+## Expanding File Support  
+- The user wants the Text API's icon upload to support more file types, not just PNG.  
+- Need to modify the `pages/2_Text_API.py` file to include additional file types for icon uploads.  
+
+## Updating Implementation  
+- Will use the existing `image_to_base64` function to handle the expanded file types.  
+- Ensure the modification integrates seamlessly with the current icon upload functionality.</details></think>
+
+---
+
+The string to replace was not found in the file.
+
+---
+
+<think><details><summary>Thought Process</summary>看起來文件內容和我預期的有點不同。讓我重新讀取文件來看看確切的內容。</details></think>
+
+---
+
+Read file: undefined
+
+---
+
+<think><details><summary>Thought Process</summary>現在我看到確切的內容了。讓我進行正確的替換。</details></think>
+
+---
+
+<details><summary>Edit file: pages/2_Text_API.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 17, lines removed: 12
+
+```diff
+@@ -73,20 +73,25 @@
+      st.markdown("### 🎨 Icon (Optional)")
+      icon_file = st.file_uploader(
+-         "Upload PNG icon (40×40px recommended)",
+-         type=["png"],
+-         help="Base64 encoded PNG icon displayed in bottom-left corner",
++         "Upload icon image (40×40px recommended)",
++         type=["png", "jpg", "jpeg", "gif", "bmp", "webp"],
++         help="Icon displayed in bottom-left corner (will be resized to 40×40px PNG)",
+      )
+  
+-     # Process icon
++     # Process icon using our image_to_base64 function
+      icon_base64 = ""
+      if icon_file:
+-         try:
+-             import base64
+- 
+-             icon_bytes = icon_file.read()
+-             icon_base64 = base64.b64encode(icon_bytes).decode("utf-8")
+-             st.success("✅ Icon uploaded and encoded")
+-         except Exception as e:
+-             st.error(f"❌ Error processing icon: {str(e)}")
++         with st.spinner("Processing icon..."):
++             # Use image_to_base64 with icon dimensions and smaller size limit
++             icon_base64 = image_to_base64(
++                 image_file=icon_file,
++                 target_width=40,
++                 target_height=40,
++                 max_size_kb=10,  # Smaller limit for icons
++             )
++ 
++         if icon_base64:
++             st.success("✅ Icon processed and ready")
++         else:
++             st.error("❌ Failed to process icon")
+  
+      # Combine content for preview
+```
+
+</details>
+
+---
+
+<think><details><summary>Thought Process</summary>現在我需要檢查是否有linter錯誤，並且確保image_to_base64函數有正確導入。讓我檢查一下文件的import部分。</details></think>
+
+---
+
+Read file: undefined
+
+---
+
+<think><details><summary>Thought Process</summary>我看到shared_components的import中沒有包含image_to_base64函數。我需要添加它。</details></think>
+
+---
+
+<details><summary>Edit file: pages/2_Text_API.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -9,5 +9,5 @@
+  # Add parent directory to path to import shared components
+  sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+- from shared_components import setup_api_credentials, call_text_api, show_api_response
++ from shared_components import setup_api_credentials, call_text_api, show_api_response, image_to_base64
+  
+  st.set_page_config(page_title="Text API - Quote/0", page_icon="📝", layout="wide")
+```
+
+</details>
+
+---
+
+<think><details><summary>Thought Process</summary>現在讓我檢查是否有任何linter錯誤。</details></think>
+
+---
+
+
+
+---
+
+<think><details><summary>Thought Process</summary>很好，沒有linter錯誤。現在讓我測試一下修改是否正確工作。讓我運行一個簡單的測試來確保代碼可以正確導入。</details></think>
+
+---
+
+```bash
+cd /Users/zhouhanru/Documents/David/Program/Quote0 && python3 -c "from pages.two_Text_API import *; print('Import successful')"
+```
+
+```
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'pages.two_Text_API'
+```
+
+---
+
+<think><details><summary>Thought Process</summary>我搞錯了文件名。讓我用正確的文件名測試。文件名是2_Text_API.py，不是two_Text_API。</details></think>
+
+---
+
+```bash
+cd /Users/zhouhanru/Documents/David/Program/Quote0 && python3 -c "import sys; sys.path.append('pages'); import importlib.util; spec = importlib.util.spec_from_file_location('text_api', 'pages/2_Text_API.py'); module = importlib.util.module_from_spec(spec); print('Module created successfully')"
+```
+
+```
+Module created successfully
+```
+
+---
+
+<think><details><summary>Thought Process</summary>好的，模塊可以成功加載。現在讓我創建一個TODO來記錄這個更改。</details></think>
+
+---
+
+## Todo List
+
+- [x] Update call_text_api function to support all Text API fields (title, message, signature, icon, link)
+- [x] Redesign Text API page UI to support individual API fields instead of combined text_content
+- [x] Add icon upload functionality with base64 encoding for 40x40px PNG icons
+- [x] Update API call to pass individual fields instead of text_content parameter
+- [x] Update preview and validation logic to work with new field structure
+- [x] Update Text API icon upload to support multiple image formats using image_to_base64 function
+
+---
+
+<think><details><summary>Thought Process</summary>現在讓我總結一下我所做的更改。</details></think>
+
+---
+
+Perfect! I've successfully updated the Text API icon upload functionality to support multiple image formats. Here's what was changed:
+
+## 🔧 **Changes Made:**
+
+### **Updated `pages/2_Text_API.py`:**
+
+1. **Enhanced File Uploader:**
+   - **Before:** Only supported `["png"]` 
+   - **After:** Now supports `["png", "jpg", "jpeg", "gif", "bmp", "webp"]`
+
+2. **Replaced Manual Processing with `image_to_base64`:**
+   - **Before:** Manual base64 encoding of raw file bytes
+   - **After:** Uses the robust `image_to_base64` function with proper image processing
+
+3. **Icon-Specific Optimization:**
+   - **Dimensions:** Automatically resizes to 40×40px (API requirement)
+   - **Size Limit:** Set to 10KB max (smaller than main images since it's just an icon)
+   - **Format:** Always converts to PNG as required by the API
+
+4. **Improved User Experience:**
+   - Shows processing spinner during conversion
+   - Better success/error messages
+   - Updated help text to reflect new capabilities
+
+## ✅ **Benefits:**
+
+1. **Multi-Format Support:** Users can now upload icons in any common image format
+2. **Automatic Processing:** Images are automatically resized, optimized, and converted to the correct format
+3. **API Compliance:** Ensures icons meet the 40×40px PNG requirement
+4. **Better Performance:** Uses the existing optimized image processing pipeline
+5. **Error Handling:** Proper error messages if processing fails
+
+## 🎯 **Technical Details:**
+
+The icon processing now leverages the same sophisticated image processing pipeline used for main images:
+- **Aspect ratio preservation** during resizing
+- **Quality optimization** to meet size limits  
+- **Format conversion** to PNG
+- **Progressive size reduction** if needed
+
+Users can now upload any image format (JPG, PNG, GIF, BMP, WebP) and it will be automatically processed into a properly sized 40×40px PNG icon for the Text API! 🚀📸
+
+---
+

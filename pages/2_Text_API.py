@@ -8,7 +8,12 @@ import os
 
 # Add parent directory to path to import shared components
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from shared_components import setup_api_credentials, call_text_api, show_api_response
+from shared_components import (
+    setup_api_credentials,
+    call_text_api,
+    show_api_response,
+    image_to_base64,
+)
 
 st.set_page_config(page_title="Text API - Quote/0", page_icon="📝", layout="wide")
 
@@ -72,22 +77,27 @@ with col1:
     # Icon upload
     st.markdown("### 🎨 Icon (Optional)")
     icon_file = st.file_uploader(
-        "Upload PNG icon (40×40px recommended)",
-        type=["png"],
-        help="Base64 encoded PNG icon displayed in bottom-left corner",
+        "Upload icon image (40×40px recommended)",
+        type=["png", "jpg", "jpeg", "gif", "bmp", "webp"],
+        help="Icon displayed in bottom-left corner (will be resized to 40×40px PNG)",
     )
 
-    # Process icon
+    # Process icon using our image_to_base64 function
     icon_base64 = ""
     if icon_file:
-        try:
-            import base64
+        with st.spinner("Processing icon..."):
+            # Use image_to_base64 with icon dimensions and smaller size limit
+            icon_base64 = image_to_base64(
+                image_file=icon_file,
+                target_width=40,
+                target_height=40,
+                max_size_kb=10,  # Smaller limit for icons
+            )
 
-            icon_bytes = icon_file.read()
-            icon_base64 = base64.b64encode(icon_bytes).decode("utf-8")
-            st.success("✅ Icon uploaded and encoded")
-        except Exception as e:
-            st.error(f"❌ Error processing icon: {str(e)}")
+        if icon_base64:
+            st.success("✅ Icon processed and ready")
+        else:
+            st.error("❌ Failed to process icon")
 
     # Combine content for preview
     text_content = ""
