@@ -62,3 +62,13 @@ $ direnv allow
 direnv: loading ~/Documents/Program/Personal/Quote0/.envrc                                                                       
 direnv: export +DOT_API_KEY +DOT_DEVICE_ID
 ```
+
+Upload package
+
+```bash
+# Register PyPI / TestPyPI
+# https://test.pypi.org/account/register/
+# Update $HOME/.pypirc with PyPI API Key config
+uv run twine upload --repository testpypi dist/*
+uv run twine upload dist/*
+```
