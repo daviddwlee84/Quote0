@@ -314,7 +314,7 @@ with col1:
             st.image(
                 image_data,
                 caption=f"Random Curve (Points: {st.session_state.data_length})",
-                use_container_width=True,
+                width="content",
             )
 
             # Show current metrics
