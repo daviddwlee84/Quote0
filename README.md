@@ -24,6 +24,27 @@ NOTE: to test if the display is normal you can use the script [checkerboard_gray
   - [图像 API](https://dot.mindreset.tech/docs/server/template/api/image_api) (296px × 152px)
   - [文本 API](https://dot.mindreset.tech/docs/server/template/api/text_api)
 
+## My CLI
+
+```bash
+# Install this package
+$ uv tool install quote0
+
+# Image API
+$ quote0 image --preset CHECKERBOARD_GRAY --api-key dot_app_.... --device-id ABCD1234ABCD
+🖼️  Using preset image: checkerboard_gray
+📤 Sending image to Quote/0 device... (border: WHITE)
+✅ Image sent successfully!
+
+# Text API with Environment Variable
+export DOT_API_KEY=dot_app_....
+export DOT_DEVICE_ID=ABCD1234ABCD
+
+$ quote0 text --title Hello --message World
+📤 Sending text to Quote/0 device...
+✅ Text sent successfully!
+```
+
 ## Todo
 
 Bug:
@@ -66,6 +87,9 @@ direnv: export +DOT_API_KEY +DOT_DEVICE_ID
 Upload package
 
 ```bash
+# Build package
+uv run python -m build
+
 # Register PyPI / TestPyPI
 # https://test.pypi.org/account/register/
 # Update $HOME/.pypirc with PyPI API Key config

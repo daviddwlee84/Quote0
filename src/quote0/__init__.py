@@ -17,7 +17,7 @@ from .streamlit_components import (
     show_legacy_api_response,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "Quote0",
