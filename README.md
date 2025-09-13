@@ -42,6 +42,16 @@ NOTE: to test if the display is normal you can use the script [checkerboard_gray
 - [MCP-Playground/docs/Environment.md at main · daviddwlee84/MCP-Playground](https://github.com/daviddwlee84/MCP-Playground/blob/main/docs/Environment.md): `direnv` + `.env` / `python-dotenv`
 
 ```bash
+# direnv
+brew install direnv
+grep -q 'direnv hook zsh' ~/.zshrc || echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
+
+# dotenv (not sure if this is needed, but we use it in the `.envrc`)
+# pip install "python-dotenv[cli]"
+uv tool install "python-dotenv[cli]"
+```
+
+```bash
 $ direnv allow
 direnv: loading ~/Documents/Program/Personal/Quote0/.envrc                                                                       
 direnv: export +DOT_API_KEY +DOT_DEVICE_ID
