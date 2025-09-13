@@ -62,7 +62,7 @@ with col1:
         # Preset image selector
         preset_images = get_preset_images()
         preset_options = [
-            f"{img['name']} ({img['dimensions']})" for img in preset_images.values()
+            f"{img.name} ({img.dimensions})" for img in preset_images.values()
         ]
         preset_keys = list(preset_images.keys())
 
@@ -76,10 +76,10 @@ with col1:
         if selected_preset_idx is not None:
             selected_preset_key = preset_keys[selected_preset_idx]
             selected_preset = preset_images[selected_preset_key]
-            preset_base64 = selected_preset["base64"]
+            preset_base64 = selected_preset.base64
 
-            st.info(f"✅ Selected: {selected_preset['name']}")
-            st.markdown(f"**Description:** {selected_preset['description']}")
+            st.info(f"✅ Selected: {selected_preset.name}")
+            st.markdown(f"**Description:** {selected_preset.description}")
 
             # Show preset image preview
             import base64
@@ -92,7 +92,7 @@ with col1:
                 preset_image = Image.open(io.BytesIO(image_data))
                 st.image(
                     preset_image,
-                    caption=f"{selected_preset['name']} ({selected_preset['dimensions']})",
+                    caption=f"{selected_preset.name} ({selected_preset.dimensions})",
                     width="stretch",
                 )
             except Exception as e:
@@ -265,7 +265,7 @@ with col2:
             preset_images = get_preset_images()
             preset_keys = list(preset_images.keys())
             selected_preset_key = preset_keys[selected_preset_idx]
-            preview_name = preset_images[selected_preset_key]["name"]
+            preview_name = preset_images[selected_preset_key].name
         except Exception as e:
             st.error(f"Error loading preset image: {e}")
             preview_name = "Preset image"

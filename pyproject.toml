@@ -27,6 +27,7 @@ dependencies = [
 
 [project.urls]
 Repository = "https://github.com/daviddwlee84/Quote0"
+Streamlit = "https://quote0.streamlit.app/"
 
 [build-system]
 requires = ["hatchling"]
