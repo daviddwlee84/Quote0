@@ -24,6 +24,10 @@ NOTE: to test if the display is normal you can use the script [checkerboard_gray
   - [图像 API](https://dot.mindreset.tech/docs/server/template/api/image_api) (296px × 152px)
   - [文本 API](https://dot.mindreset.tech/docs/server/template/api/text_api)
 
+## Todo
+
+- [ ] Image API additional parameters
+
 ## Resources
 
 - [Quote/0 摘录 - 少数派](https://sspai.com/create/quote0)
