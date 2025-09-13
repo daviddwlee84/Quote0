@@ -8,4 +8,6 @@ dependencies = [
     "python-dotenv[cli]>=1.1.1",
     "streamlit>=1.49.1",
     "watchdog>=6.0.0",
+    "pillow>=10.0.0",
+    "requests>=2.31.0",
 ]
