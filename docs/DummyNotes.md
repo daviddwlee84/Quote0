@@ -42,3 +42,13 @@ uv run python -m build
 uv run twine upload --repository testpypi dist/*
 uv run twine upload dist/*
 ```
+
+Upload package with UV
+
+```bash
+# Build package by UV
+uv build
+uv build --wheel
+
+uv publish
+```
