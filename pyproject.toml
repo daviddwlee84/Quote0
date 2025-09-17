@@ -51,5 +51,12 @@ dev = [
     "twine>=4.0.0",
 ]
 
+# https://github.com/astral-sh/uv/issues/6925
+[tool.uv]
+index-url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
+
+[[tool.uv.index]]
+url = "https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple"
+
 [project.scripts]
 quote0 = "quote0.cli:main"

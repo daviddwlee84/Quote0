@@ -7,5 +7,6 @@ curl -X POST \
     \"refreshNow\": true,
     \"deviceId\": \"$DOT_DEVICE_ID\",
     \"image\": \"iVBORw0KGgoAAAANSUhEUgAAASgAAACYAQAAAAB/wUl1AAAAN0lEQVR4nO3MsQ0AMAgEsSBlRZZkSlb4Hl99cs0Lqk6uH10sFovFYrFYLBaLxWKxWCwWi8W6aC1FhjRHozCNPQAAAABJRU5ErkJggg==\",
-    \"border\": 0
+    \"border\": 0,
+    \"link\": \"https://www.google.com\"
   }"
