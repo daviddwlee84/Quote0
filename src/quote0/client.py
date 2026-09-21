@@ -29,6 +29,62 @@ class Quote0:
             "Content-Type": "application/json",
         }
 
+    def _post(self, endpoint: str, payload: dict, success_message: str) -> ApiResponse:
+        """Send a bounded request and handle transport and API-level failures."""
+        response = None
+        try:
+            response = requests.post(
+                f"{self.base_url}/{endpoint}",
+                json=payload,
+                headers=self._get_headers(),
+                timeout=30,
+            )
+            response.raise_for_status()
+        except requests.exceptions.RequestException as error:
+            return ApiResponse(
+                success=False,
+                status_code=response.status_code if response is not None else None,
+                error=str(error),
+                message=f"API call failed: {error}",
+            )
+
+        try:
+            body = response.json() if response.content else {}
+        except ValueError:
+            return ApiResponse(
+                success=False,
+                status_code=response.status_code,
+                error="Invalid JSON response",
+                message="API call failed: invalid JSON response",
+            )
+
+        if not isinstance(body, dict):
+            return ApiResponse(
+                success=False,
+                status_code=response.status_code,
+                error="Expected a JSON object response",
+                message="API call failed: expected a JSON object response",
+            )
+
+        if "code" in body and body["code"] != 200:
+            error = f"API returned code {body['code']}"
+            if body.get("message"):
+                error += f": {body['message']}"
+            return ApiResponse(
+                success=False,
+                status_code=response.status_code,
+                response=body,
+                error=error,
+                message=f"API call failed: {error}",
+            )
+
+        return ApiResponse(
+            success=True,
+            status_code=response.status_code,
+            response=body,
+            message=success_message,
+        )
+
     def send_image(
         self,
         image_base64: str,
@@ -52,8 +108,6 @@ class Quote0:
         Returns:
             ApiResponse object with success status and details
         """
-        url = f"{self.base_url}/image"
-
         # Create request payload using Pydantic model
         request_data = ImageApiRequest(
             refreshNow=refresh_now,
@@ -65,27 +119,11 @@ class Quote0:
             ditherKernel=dither_kernel,
         )
 
-        try:
-            response = requests.post(
-                url,
-                json=request_data.model_dump(exclude_none=True),
-                headers=self._get_headers(),
-            )
-            response.raise_for_status()
-
-            return ApiResponse(
-                success=True,
-                status_code=response.status_code,
-                response=response.json() if response.content else {},
-                message="Image sent successfully!",
-            )
-
-        except requests.exceptions.RequestException as e:
-            return ApiResponse(
-                success=False,
-                error=str(e),
-                message=f"API call failed: {str(e)} ({response.text})",
-            )
+        return self._post(
+            "image",
+            request_data.model_dump(exclude_none=True),
+            "Image sent successfully!",
+        )
 
     def send_text(
         self,
@@ -110,8 +148,6 @@ class Quote0:
         Returns:
             ApiResponse object with success status and details
         """
-        url = f"{self.base_url}/text"
-
         # Create request payload using Pydantic model
         request_data = TextApiRequest(
             refreshNow=refresh_now,
@@ -123,24 +159,8 @@ class Quote0:
             link=link,
         )
 
-        try:
-            response = requests.post(
-                url,
-                json=request_data.model_dump(exclude_none=True),
-                headers=self._get_headers(),
-            )
-            response.raise_for_status()
-
-            return ApiResponse(
-                success=True,
-                status_code=response.status_code,
-                response=response.json() if response.content else {},
-                message="Text sent successfully!",
-            )
-
-        except requests.exceptions.RequestException as e:
-            return ApiResponse(
-                success=False,
-                error=str(e),
-                message=f"API call failed: {str(e)} ({response.text})",
-            )
+        return self._post(
+            "text",
+            request_data.model_dump(exclude_none=True),
+            "Text sent successfully!",
+        )

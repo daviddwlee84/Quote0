@@ -2304,6 +2304,7 @@ dependencies = [
     { name = "python-dotenv", extra = ["cli"] },
     { name = "requests" },
     { name = "streamlit" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "tyro" },
     { name = "watchdog" },
 ]
@@ -2325,6 +2326,7 @@ requires-dist = [
     { name = "python-dotenv", extras = ["cli"], specifier = ">=1.1.1" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "streamlit", specifier = ">=1.49.1" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "tyro", specifier = ">=0.9.31" },
     { name = "watchdog", specifier = ">=6.0.0" },
 ]

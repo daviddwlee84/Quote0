@@ -1,0 +1,11 @@
+# Copy to quote0.toml and replace the device IDs.
+# Store the referenced keys in the environment or the working directory's .env.
+# Content, providers, and scheduling belong in your own commands/scripts.
+
+[devices.desk]
+device_id = "DEVICE_A"
+api_key_env = "DOT_API_KEY"
+
+[devices.side]
+device_id = "DEVICE_B"
+api_key_env = "DOT_SIDE_API_KEY"

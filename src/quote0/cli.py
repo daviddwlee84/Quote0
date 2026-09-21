@@ -5,16 +5,18 @@ Quote/0 CLI Tool - Send text and images to your Quote/0 device
 TODO: make use of our models.py?!
 """
 
-import os
+import base64
+import io
 import sys
-from typing import Optional, Union
+from typing import Annotated, List, Optional, Sequence, Union
 from pathlib import Path
 import tyro
 from dataclasses import dataclass
 from enum import Enum
 
 from .client import Quote0
-from .models import BorderColor
+from .config import resolve_device
+from .models import ApiResponse, BorderColor
 from .utils import get_preset_images
 
 
@@ -27,20 +29,29 @@ class PresetImageName(Enum):
 
 
 @dataclass
-class Text:
-    """Send text to Quote/0 device"""
+class DeviceOptions:
+    """Shared delivery options."""
 
-    # Global options
-    api_key: str = os.getenv("DOT_API_KEY", "")
-    """DOT API key (defaults to DOT_API_KEY environment variable)"""
+    device: Optional[str] = None
+    """Named device from the TOML configuration"""
 
-    device_id: str = os.getenv("DOT_DEVICE_ID", "")
-    """DOT device ID (defaults to DOT_DEVICE_ID environment variable)"""
+    config: Path = Path("quote0.toml")
+    """Device configuration file (read only when --device is supplied)"""
+
+    api_key: Optional[str] = None
+    """Override the device API key (otherwise use its configured environment variable or DOT_API_KEY)"""
+
+    device_id: Optional[str] = None
+    """Override the device ID (otherwise use the named device or DOT_DEVICE_ID)"""
 
     no_refresh: bool = False
     """Don't refresh the display immediately after sending"""
 
-    # Text-specific options
+
+@dataclass
+class Text(DeviceOptions):
+    """Send text to Quote/0 device"""
+
     title: Optional[str] = None
     """Text title to display"""
 
@@ -58,18 +69,8 @@ class Text:
 
 
 @dataclass
-class Image:
+class Image(DeviceOptions):
     """Send image to Quote/0 device"""
-
-    # Global options
-    api_key: str = os.getenv("DOT_API_KEY", "")
-    """DOT API key (defaults to DOT_API_KEY environment variable)"""
-
-    device_id: str = os.getenv("DOT_DEVICE_ID", "")
-    """DOT device ID (defaults to DOT_DEVICE_ID environment variable)"""
-
-    no_refresh: bool = False
-    """Don't refresh the display immediately after sending"""
 
     # Image-specific options
 
@@ -97,14 +98,50 @@ class Image:
     """Dithering algorithm (only used when dither_type is DIFFUSION)"""
 
 
+@dataclass
+class Quota(DeviceOptions):
+    """Display current-account quotas from the CodexBar CLI"""
+
+    providers: List[str] = tyro.MISSING
+    """One to six distinct CodexBar provider IDs, in display order"""
+
+    output: Optional[Path] = None
+    """Save a PNG preview instead of sending; device credentials are not required"""
+
+
+@dataclass
+class Apps:
+    """Applications built on the generic Quote/0 client"""
+
+    command: Union[
+        Annotated[Quota, tyro.conf.subcommand(name="quota")],
+        Annotated[None, tyro.conf.Suppress],
+    ]
+
+
+def _client(config: DeviceOptions) -> Quote0:
+    credentials = resolve_device(
+        device=config.device,
+        config=config.config,
+        api_key=config.api_key,
+        device_id=config.device_id,
+    )
+    return Quote0(credentials.api_key, credentials.device_id)
+
+
+def _report_response(response: ApiResponse) -> None:
+    if response.success:
+        print(f"✅ {response.message}")
+    else:
+        print(f"❌ {response.message}", file=sys.stderr)
+        if response.error:
+            print(f"Error details: {response.error}", file=sys.stderr)
+        sys.exit(1)
+
+
 def text_command(config: Text) -> None:
     """Execute text command"""
-    if not config.api_key or not config.device_id:
-        print("❌ Error: API key and device ID are required")
-        print(
-            "Set DOT_API_KEY and DOT_DEVICE_ID environment variables or use --api-key and --device-id flags"
-        )
-        sys.exit(1)
+    client = _client(config)
 
     if not any([config.title, config.message, config.signature]):
         print(
@@ -120,17 +157,12 @@ def text_command(config: Text) -> None:
             sys.exit(1)
 
         try:
-            import base64
-
             with open(config.icon_file, "rb") as f:
                 icon_base64 = base64.b64encode(f.read()).decode("utf-8")
             print(f"📁 Loaded icon from: {config.icon_file}")
         except Exception as e:
             print(f"❌ Error loading icon file: {e}")
             sys.exit(1)
-
-    # Create client and send text
-    client = Quote0(config.api_key, config.device_id)
 
     print("📤 Sending text to Quote/0 device...")
     response = client.send_text(
@@ -142,23 +174,12 @@ def text_command(config: Text) -> None:
         link=config.link,
     )
 
-    if response.success:
-        print(f"✅ {response.message}")
-    else:
-        print(f"❌ {response.message}")
-        if response.error:
-            print(f"Error details: {response.error}")
-        sys.exit(1)
+    _report_response(response)
 
 
 def image_command(config: Image) -> None:
     """Execute image command"""
-    if not config.api_key or not config.device_id:
-        print("❌ Error: API key and device ID are required")
-        print(
-            "Set DOT_API_KEY and DOT_DEVICE_ID environment variables or use --api-key and --device-id flags"
-        )
-        sys.exit(1)
+    client = _client(config)
 
     # Validate that exactly one of file, preset, or base64 is provided
     image_sources = [config.file, config.preset, config.base64]
@@ -189,8 +210,6 @@ def image_command(config: Image) -> None:
             sys.exit(1)
 
         try:
-            import base64
-
             # For CLI, we need to handle file objects differently
             print(f"📁 Loading image from: {config.file}")
             with open(config.file, "rb") as f:
@@ -208,9 +227,6 @@ def image_command(config: Image) -> None:
         image_base64 = config.base64
         print(f"📏 Base64 data length: {len(image_base64)} characters")
 
-    # Create client and send image
-    client = Quote0(config.api_key, config.device_id)
-
     print(f"📤 Sending image to Quote/0 device... (border: {config.border.name})")
     response = client.send_image(
         image_base64=image_base64,
@@ -221,33 +237,61 @@ def image_command(config: Image) -> None:
         dither_kernel=config.dither_kernel,
     )
 
-    if response.success:
-        print(f"✅ {response.message}")
+    _report_response(response)
+
+
+def quota_command(config: Quota) -> None:
+    """Fetch, render, and optionally deliver the quota application."""
+    from .apps.quota import fetch_quotas, render_quota, validate_providers
+
+    validate_providers(config.providers)
+    # Resolve delivery settings before fetching. Previews need no device at all.
+    client = None if config.output is not None else _client(config)
+    quotas = fetch_quotas(config.providers)
+    picture = render_quota(quotas)
+
+    if config.output is not None:
+        picture.save(config.output, format="PNG")
+        print(f"🖼️  Saved quota preview: {config.output}")
     else:
-        print(f"❌ {response.message}")
-        if response.error:
-            print(f"Error details: {response.error}")
+        buffer = io.BytesIO()
+        picture.save(buffer, format="PNG")
+        assert client is not None
+        _report_response(
+            client.send_image(
+                image_base64=base64.b64encode(buffer.getvalue()).decode("ascii"),
+                border=BorderColor.WHITE,
+                refresh_now=not config.no_refresh,
+                dither_type="NONE",
+            )
+        )
+
+    failures = [quota for quota in quotas if quota.error]
+    for quota in failures:
+        print(f"⚠️  {quota.provider}: {quota.error}", file=sys.stderr)
+    if failures:
         sys.exit(1)
 
 
-def main() -> None:
+def main(args: Optional[Sequence[str]] = None) -> None:
     """Main CLI entry point"""
-    # Use tyro's Union-based subcommand support
-    config = tyro.cli(Union[Text, Image])
+    config = tyro.cli(
+        Union[Text, Image, Apps],
+        args=args,
+        config=(tyro.conf.OmitSubcommandPrefixes, tyro.conf.OmitArgPrefixes),
+    )
 
-    if isinstance(config, Text):
-        text_command(config)
-    elif isinstance(config, Image):
-        image_command(config)
-    else:
-        print("❌ Error: Unknown configuration type")
+    try:
+        if isinstance(config, Text):
+            text_command(config)
+        elif isinstance(config, Image):
+            image_command(config)
+        elif isinstance(config, Apps) and isinstance(config.command, Quota):
+            quota_command(config.command)
+    except (ValueError, OSError, RuntimeError) as exc:
+        print(f"❌ Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
 
 if __name__ == "__main__":
-
-    from dotenv import load_dotenv, find_dotenv
-
-    load_dotenv(find_dotenv())
-
     main()
