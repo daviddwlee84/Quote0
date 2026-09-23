@@ -68,7 +68,21 @@ class FetchQuotaTests(unittest.TestCase):
             run.call_args_list[0].args[0],
             ["codexbar", "usage", "--provider", "claude", "--json", "--json-only"],
         )
-        self.assertEqual(run.call_args.kwargs["timeout"], 30)
+        self.assertEqual(run.call_args.kwargs["timeout"], 120)
+
+    @patch("quote0.apps.quota.subprocess.run")
+    def test_custom_timeout_and_invalid_limits(self, run):
+        run.return_value = result([snapshot()])
+        fetch_quotas(["codex"], timeout=90)
+        self.assertEqual(run.call_args.kwargs["timeout"], 90)
+        run.reset_mock()
+        for timeout in (0, -1, float("inf"), float("nan"), True, "120"):
+            with (
+                self.subTest(timeout=timeout),
+                self.assertRaisesRegex(ValueError, "timeout"),
+            ):
+                fetch_quotas(["codex"], timeout=timeout)
+        run.assert_not_called()
 
     @patch("quote0.apps.quota.subprocess.run")
     def test_partial_failure_does_not_discard_other_provider(self, run):
@@ -95,10 +109,107 @@ class FetchQuotaTests(unittest.TestCase):
             subprocess.CompletedProcess([], 1, "not JSON", "diagnostic"),
             result([snapshot("gemini")]),
         ]
-        rows = fetch_quotas(["codex", "claude", "gemini"])
+        rows = fetch_quotas(["codex", "claude", "gemini"], timeout=30)
         self.assertIn("30s", rows[0].error)
         self.assertIn("invalid JSON", rows[1].error)
         self.assertIsNone(rows[2].error)
+        self.assertIn("--timeout", rows[0].error)
+
+    @patch("quote0.apps.quota.subprocess.run")
+    def test_cursor_legacy_request_quota(self, run):
+        run.return_value = result(
+            [
+                snapshot(
+                    "cursor",
+                    primary={
+                        "usedPercent": 5,
+                        "windowMinutes": 43200,
+                        "resetDescription": "25 / 500 requests",
+                        "resetsAt": "2026-10-11T03:26:36Z",
+                    },
+                    secondary=None,
+                )
+            ]
+        )
+        row = fetch_quotas(["cursor"])[0]
+        self.assertIsNone(row.error)
+        self.assertEqual(len(row.windows), 1)
+        window = row.windows[0]
+        self.assertEqual(window.label, "Req")
+        self.assertEqual(window.request_usage, (25, 500))
+        self.assertEqual(window.remaining_percent, 95)
+        self.assertEqual(
+            window.resets_at, datetime(2026, 10, 11, 3, 26, 36, tzinfo=timezone.utc)
+        )
+
+    @patch("quote0.apps.quota.subprocess.run")
+    def test_cursor_request_details_fallback_and_exhaustion(self, run):
+        for used, limit, remaining in (
+            (25, 500, 95),
+            (600, 500, 0),
+            (0, 500, 100),
+            (1250, 5000, 75),
+        ):
+            with self.subTest(used=used):
+                run.return_value = result(
+                    [
+                        snapshot(
+                            "cursor",
+                            primary={},
+                            secondary=None,
+                            details=[
+                                {
+                                    "rows": [
+                                        {
+                                            "label": "Request quota",
+                                            "value": f"{used:,} / {limit:,}",
+                                        }
+                                    ]
+                                }
+                            ],
+                        )
+                    ]
+                )
+                window = fetch_quotas(["cursor"])[0].windows[0]
+                self.assertEqual(window.request_usage, (used, limit))
+                self.assertEqual(window.remaining_percent, remaining)
+
+    @patch("quote0.apps.quota.subprocess.run")
+    def test_request_counts_are_not_invented_for_other_plans(self, run):
+        for description in (
+            None,
+            "25 / unlimited requests",
+            "25 / 0 requests",
+            "-1 / 500 requests",
+            "resets in 3 days",
+            "12.5 / 500 requests",
+        ):
+            with self.subTest(description=description):
+                run.return_value = result(
+                    [
+                        snapshot(
+                            "cursor",
+                            primary={
+                                "usedPercent": 5,
+                                "windowMinutes": 43200,
+                                "resetDescription": description,
+                            },
+                            details={"rows": []},
+                        )
+                    ]
+                )
+                window = fetch_quotas(["cursor"])[0].windows[0]
+                self.assertIsNone(window.request_usage)
+                self.assertEqual(window.remaining_percent, 95)
+                self.assertEqual(window.label, "30d")
+        run.return_value = result(
+            [
+                snapshot(
+                    primary={"usedPercent": 5, "resetDescription": "25 / 500 requests"}
+                )
+            ]
+        )
+        self.assertIsNone(fetch_quotas(["codex"])[0].windows[0].request_usage)
 
     @patch("quote0.apps.quota.subprocess.run")
     def test_missing_fields_invalid_numbers_and_clamping(self, run):
@@ -205,6 +316,35 @@ class RenderQuotaTests(unittest.TestCase):
         rows[0] = ProviderQuota("an-extremely-long-provider-name", error="failed")
         _, texts = self.capture(rows)
         self.assertTrue(any("…" in text for _, text, _ in texts))
+
+    def test_request_quota_is_readable_in_all_layouts(self):
+        for count in range(1, 7):
+            with self.subTest(count=count):
+                rows = self.rows(count)
+                rows[0] = ProviderQuota(
+                    "cursor",
+                    (
+                        QuotaWindow(
+                            "primary", "Req", 95, NOW + timedelta(days=17), (25, 500)
+                        ),
+                    ),
+                )
+                _, texts = self.capture(rows)
+                strings = [text for _, text, _ in texts]
+                if count == 1:
+                    self.assertIn("25/500 used", strings)
+                    self.assertIn("95%", strings)
+                    self.assertIn("reset 17d", strings)
+                else:
+                    self.assertIn("475/500", strings)
+                    self.assertIn("left 95%", strings)
+                    if count <= 3:
+                        self.assertIn("Req 25/500 used · reset 17d", strings)
+                for (x, y), text, font in texts:
+                    self.assertLessEqual(x + font.getlength(text), 290)
+                    self.assertLess(
+                        y + font.getbbox(text)[3] - font.getbbox(text)[1], 152
+                    )
 
 
 if __name__ == "__main__":

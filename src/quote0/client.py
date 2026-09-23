@@ -4,6 +4,7 @@ Quote/0 API Client
 
 import requests
 from typing import Optional
+from urllib.parse import quote
 from .models import ImageApiRequest, TextApiRequest, ApiResponse, BorderColor
 
 
@@ -20,7 +21,7 @@ class Quote0:
         """
         self.api_key = api_key
         self.device_id = device_id
-        self.base_url = "https://dot.mindreset.tech/api/open"
+        self.base_url = "https://dot.mindreset.tech/api/authV2/open/device"
 
     def _get_headers(self) -> dict:
         """Get request headers"""
@@ -30,50 +31,56 @@ class Quote0:
         }
 
     def _post(self, endpoint: str, payload: dict, success_message: str) -> ApiResponse:
-        """Send a bounded request and handle transport and API-level failures."""
-        response = None
+        """Send a bounded V2 request and preserve server error details."""
         try:
             response = requests.post(
-                f"{self.base_url}/{endpoint}",
+                f"{self.base_url}/{quote(self.device_id, safe='')}/{endpoint}",
                 json=payload,
                 headers=self._get_headers(),
                 timeout=30,
             )
-            response.raise_for_status()
         except requests.exceptions.RequestException as error:
             return ApiResponse(
                 success=False,
-                status_code=response.status_code if response is not None else None,
+                status_code=(
+                    error.response.status_code if error.response is not None else None
+                ),
                 error=str(error),
                 message=f"API call failed: {error}",
             )
 
+        parse_error = None
         try:
             body = response.json() if response.content else {}
         except ValueError:
+            body = None
+            parse_error = "Invalid JSON response"
+
+        server_message = body.get("message") if isinstance(body, dict) else None
+        if not isinstance(server_message, str) or not server_message.strip():
+            server_message = None
+
+        if not 200 <= response.status_code < 300:
+            detail = server_message
+            if detail is None:
+                raw_text = response.text.strip()
+                detail = raw_text[:500] + ("..." if len(raw_text) > 500 else "")
+            error = f"HTTP {response.status_code}"
+            if detail:
+                error += f": {detail}"
             return ApiResponse(
                 success=False,
                 status_code=response.status_code,
-                error="Invalid JSON response",
-                message="API call failed: invalid JSON response",
+                response=body if isinstance(body, dict) else None,
+                error=error,
+                message=f"API call failed: {error}",
             )
 
         if not isinstance(body, dict):
+            error = parse_error or "Expected a JSON object response"
             return ApiResponse(
                 success=False,
                 status_code=response.status_code,
-                error="Expected a JSON object response",
-                message="API call failed: expected a JSON object response",
-            )
-
-        if "code" in body and body["code"] != 200:
-            error = f"API returned code {body['code']}"
-            if body.get("message"):
-                error += f": {body['message']}"
-            return ApiResponse(
-                success=False,
-                status_code=response.status_code,
-                response=body,
                 error=error,
                 message=f"API call failed: {error}",
             )
@@ -82,7 +89,7 @@ class Quote0:
             success=True,
             status_code=response.status_code,
             response=body,
-            message=success_message,
+            message=server_message or success_message,
         )
 
     def send_image(
@@ -121,7 +128,7 @@ class Quote0:
 
         return self._post(
             "image",
-            request_data.model_dump(exclude_none=True),
+            request_data.model_dump(exclude_none=True, exclude={"deviceId"}),
             "Image sent successfully!",
         )
 
@@ -161,6 +168,6 @@ class Quote0:
 
         return self._post(
             "text",
-            request_data.model_dump(exclude_none=True),
+            request_data.model_dump(exclude_none=True, exclude={"deviceId"}),
             "Text sent successfully!",
         )

@@ -91,8 +91,7 @@ fi
 
 # Build JSON payload
 JSON_DATA="{"
-JSON_DATA="$JSON_DATA\"refreshNow\": $REFRESH_NOW,"
-JSON_DATA="$JSON_DATA\"deviceId\": \"$DEVICE_ID\""
+JSON_DATA="$JSON_DATA\"refreshNow\": $REFRESH_NOW"
 
 if [ -n "$TITLE" ]; then
     JSON_DATA="$JSON_DATA,\"title\": \"$TITLE\""
@@ -118,7 +117,7 @@ JSON_DATA="$JSON_DATA}"
 
 # Make the API call
 curl -X POST \
-  https://dot.mindreset.tech/api/open/text \
+  "https://dot.mindreset.tech/api/authV2/open/device/${DEVICE_ID}/text" \
   -H "Authorization: Bearer $DOT_API_KEY" \
   -H 'Content-Type: application/json' \
   --data "$JSON_DATA"

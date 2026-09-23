@@ -19,6 +19,7 @@ class QuotaWindow:
     label: str
     remaining_percent: Optional[float] = None
     resets_at: Optional[datetime] = None
+    request_usage: Optional[Tuple[int, int]] = None
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,35 @@ def _provider_error(value: Any) -> str:
     return "CodexBar could not fetch this provider."
 
 
+def _cursor_requests(raw: dict, usage: dict) -> Optional[Tuple[int, int]]:
+    """Read legacy Cursor request counts, without guessing from percentages."""
+    description = raw.get("resetDescription")
+    candidates = []
+    if isinstance(description, str):
+        match = re.fullmatch(r"\s*([\d,]+)\s*/\s*([\d,]+)\s+requests\s*", description)
+        if match:
+            candidates.append(match.groups())
+    details = usage.get("details")
+    for section in details if isinstance(details, list) else []:
+        rows = section.get("rows") if isinstance(section, dict) else None
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict) or row.get("label") != "Request quota":
+                continue
+            value = row.get("value")
+            if isinstance(value, str):
+                match = re.fullmatch(r"\s*([\d,]+)\s*/\s*([\d,]+)\s*", value)
+                if match:
+                    candidates.append(match.groups())
+    for used, limit in candidates:
+        try:
+            counts = int(used.replace(",", "")), int(limit.replace(",", ""))
+        except ValueError:
+            continue
+        if counts[1] > 0:
+            return counts
+    return None
+
+
 def _parse(provider: str, output: str, returncode: int) -> ProviderQuota:
     try:
         payload = json.loads(output)
@@ -131,12 +161,24 @@ def _parse(provider: str, output: str, returncode: int) -> ProviderQuota:
             continue
         used = _number(raw.get("usedPercent"))
         remaining = None if used is None else max(0.0, min(100.0, 100.0 - used))
+        requests = (
+            _cursor_requests(raw, usage)
+            if provider == "cursor" and slot == "primary"
+            else None
+        )
+        if requests is not None:
+            remaining = max(0.0, min(100.0, 100.0 * (1 - requests[0] / requests[1])))
         windows.append(
             QuotaWindow(
                 slot=slot,
-                label=_window_label(slot, raw.get("windowMinutes")),
+                label=(
+                    "Req"
+                    if requests is not None
+                    else _window_label(slot, raw.get("windowMinutes"))
+                ),
                 remaining_percent=remaining,
                 resets_at=_date(raw.get("resetsAt")),
+                request_usage=requests,
             )
         )
     if not windows and not error:
@@ -150,13 +192,19 @@ def _parse(provider: str, output: str, returncode: int) -> ProviderQuota:
     )
 
 
-def fetch_quotas(providers: Sequence[str]) -> List[ProviderQuota]:
+def fetch_quotas(
+    providers: Sequence[str], *, timeout: float = 120
+) -> List[ProviderQuota]:
     """Fetch each current account once; provider failures remain individual rows.
 
     CodexBar 0.56.3 emits an array, including error rows, before returning a
     nonzero exit status. Always inspect its stdout, even after a failed fetch.
     """
     validate_providers(providers)
+    if _number(timeout) is None or timeout <= 0:
+        raise ValueError(
+            "CodexBar timeout must be a positive, finite number of seconds."
+        )
     quotas = []
     for provider in providers:
         try:
@@ -164,7 +212,7 @@ def fetch_quotas(providers: Sequence[str]) -> List[ProviderQuota]:
                 ["codexbar", "usage", "--provider", provider, "--json", "--json-only"],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=timeout,
                 check=False,
             )
         except FileNotFoundError as exc:
@@ -173,7 +221,10 @@ def fetch_quotas(providers: Sequence[str]) -> List[ProviderQuota]:
             ) from exc
         except subprocess.TimeoutExpired:
             quotas.append(
-                ProviderQuota(provider, error="CodexBar timed out after 30s.")
+                ProviderQuota(
+                    provider,
+                    error=f"CodexBar timed out after {timeout:g}s. Increase --timeout if needed.",
+                )
             )
             continue
         except OSError as exc:
@@ -267,9 +318,12 @@ def render_quota(
                 y = 51 + index * 27
                 _text(draw, (6, y), window.label, _font(12), 56)
                 _text(draw, (67, y - 2), _percent(window), _font(16, True), 67)
-                _text(
-                    draw, (145, y), "reset " + _reset(window, current), _font(12), 144
+                detail = (
+                    "{}/{} used".format(*window.request_usage)
+                    if window.request_usage is not None
+                    else "reset " + _reset(window, current)
                 )
+                _text(draw, (145, y), detail, _font(12), 144)
                 draw.rectangle((6, y + 18, 289, y + 22), outline=0)
                 if (
                     window.remaining_percent is not None
@@ -277,14 +331,28 @@ def render_quota(
                 ):
                     right = 7 + round(281 * window.remaining_percent / 100)
                     draw.rectangle((7, y + 19, min(right, 288), y + 21), fill=0)
+                if window.request_usage is not None and len(quota.windows) == 1:
+                    _text(
+                        draw,
+                        (6, y + 36),
+                        "reset " + _reset(window, current),
+                        _font(12),
+                        284,
+                    )
     else:
         row_height = 108 // len(quotas)
         for index, quota in enumerate(quotas):
             y = 26 + index * row_height
             _text(draw, (6, y), _name(quota.provider), _font(12, True), 100)
             windows = {window.slot: window for window in quota.windows}
+            primary = windows.get("primary")
+            requests = primary.request_usage if primary else None
             if quota.error:
                 _text(draw, (113, y), "ERR  Unavailable", _font(12), 176)
+            elif requests is not None:
+                used, limit = requests
+                _text(draw, (113, y), f"{max(0, limit - used)}/{limit}", _font(12), 88)
+                _text(draw, (207, y), "left " + _percent(primary), _font(12), 82)
             else:
                 for slot, x, width in (("primary", 113, 88), ("secondary", 207, 82)):
                     window = windows.get(slot)
@@ -293,14 +361,17 @@ def render_quota(
                         draw, (x, y), label + " " + _percent(window), _font(12), width
                     )
             if len(quotas) <= 3:
-                resets = (
-                    "Check CodexBar"
-                    if quota.error
-                    else "reset P {}  /  S {}".format(
+                if quota.error:
+                    resets = "Check CodexBar"
+                elif requests is not None:
+                    resets = "Req {}/{} used · reset {}".format(
+                        *requests, _reset(primary, current)
+                    )
+                else:
+                    resets = "reset P {}  /  S {}".format(
                         _reset(windows.get("primary"), current),
                         _reset(windows.get("secondary"), current),
                     )
-                )
                 _text(draw, (6, y + 17), resets, _font(12), 283)
             if index < len(quotas) - 1:
                 draw.line((6, y + row_height - 3, 289, y + row_height - 3), fill=0)

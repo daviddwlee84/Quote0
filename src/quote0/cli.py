@@ -108,6 +108,9 @@ class Quota(DeviceOptions):
     output: Optional[Path] = None
     """Save a PNG preview instead of sending; device credentials are not required"""
 
+    timeout: float = 120
+    """Maximum seconds to wait for each CodexBar provider"""
+
 
 @dataclass
 class Apps:
@@ -247,7 +250,7 @@ def quota_command(config: Quota) -> None:
     validate_providers(config.providers)
     # Resolve delivery settings before fetching. Previews need no device at all.
     client = None if config.output is not None else _client(config)
-    quotas = fetch_quotas(config.providers)
+    quotas = fetch_quotas(config.providers, timeout=config.timeout)
     picture = render_quota(quotas)
 
     if config.output is not None:

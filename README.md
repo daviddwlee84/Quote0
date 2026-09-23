@@ -32,7 +32,7 @@ $ uv tool install quote0
 $ quote0 image --preset CHECKERBOARD_GRAY --api-key dot_app_.... --device-id ABCD1234ABCD
 🖼️  Using preset image: checkerboard_gray
 📤 Sending image to Quote/0 device... (border: WHITE)
-✅ Image sent successfully!
+✅ Device ABCD1234ABCD Image API content switched.
 
 # Text API with Environment Variable
 export DOT_API_KEY=dot_app_....
@@ -40,12 +40,19 @@ export DOT_DEVICE_ID=ABCD1234ABCD
 
 $ quote0 text --title Hello --message World
 📤 Sending text to Quote/0 device...
-✅ Text sent successfully!
+✅ Device ABCD1234ABCD text API content switched.
 ```
 
 The CLI also loads `.env` from the current working directory when resolving a
 device. Exported environment variables take precedence over `.env`; explicit
 `--api-key` and `--device-id` flags take precedence over both.
+
+The client uses `/api/authV2/open/device/{deviceId}/image` and `/text`, with
+the device ID in the URL and Bearer authentication. Success and error messages
+come from the server; the HTTP status determines the result. If a request returns
+404, verify the device ID and that the matching Image API or Text API content
+has been added to the device's Loop in the Dot. App. See the
+[API reference](docs/Quote0_API_Schema.md).
 
 #### Named devices
 
@@ -125,11 +132,41 @@ secondary, and tertiary when duration is unavailable. `--` means unavailable
 data; `ERR` means fetching failed. The footer shows the oldest successful source
 timestamp in local time, or the check time when all providers failed.
 
-Provider requests have a 30-second timeout. A failed provider remains visible
+Legacy Cursor request plans also show request counts. For example, 25 used out
+of 500 displays 95% remaining: the single-provider view shows `25/500 used`,
+and multi-provider rows show `475/500` left. With two or three providers, the
+second line includes used counts and the reset countdown. Counts come from
+CodexBar's request-quota fields; percentage-only plans keep the normal layout.
+
+Each provider request has a 120-second timeout, allowing for browser access
+and CLI startup. Adjust it with `--timeout` (seconds per provider):
+
+```bash
+quote0 apps quota --device desk --providers claude cursor --timeout 180
+```
+
+A failed provider remains visible
 while other providers continue; a partial or failed snapshot is still rendered
 and saved/sent, then the command exits with status 1. Missing CodexBar, invalid
 configuration, and delivery failures also exit nonzero. Quote/0 HTTP requests
 use a 30-second timeout.
+
+For Antigravity CLI usage, use a current CodexBar release. Older CodexBar builds
+cannot read the local API in `agy` 1.2.2+ because it requires a CSRF token; the
+final error may misleadingly say that the language server was not detected.
+Updated builds support `agy`'s structured `/usage` report. See the
+[upstream fix](https://github.com/steipete/CodexBar/pull/3685) and
+[provider documentation](https://github.com/steipete/CodexBar/blob/v0.65.0/docs/antigravity.md).
+If `agy` resolves to the older IDE launcher while the standalone CLI is installed
+elsewhere, set CodexBar's override to the actual CLI executable, for example:
+
+```bash
+export ANTIGRAVITY_CLI_PATH="$HOME/.local/bin/agy"
+codexbar usage --provider antigravity
+```
+
+Increasing Quote0's timeout does not change CodexBar's own source timeouts or
+fix an incompatible provider integration.
 
 Keep scheduling in a small wrapper, or adapt
 [the refresh example](examples/quota_loop.sh):
@@ -178,6 +215,6 @@ Bug:
 
 ### API
 
-- [了解 API](https://dot.mindreset.tech/docs/server/template/api)
-  - [图像 API](https://dot.mindreset.tech/docs/server/template/api/image_api) (296px × 152px)
-  - [文本 API](https://dot.mindreset.tech/docs/server/template/api/text_api)
+- [了解 API](https://dot.mindreset.tech/docs/service/open/what_is_api)
+  - [图像 API](https://dot.mindreset.tech/docs/service/open/image_api) (296px × 152px)
+  - [文本 API](https://dot.mindreset.tech/docs/service/open/text_api)

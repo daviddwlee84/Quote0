@@ -292,5 +292,5 @@ with col2:
 # Footer info
 st.markdown("---")
 st.markdown(
-    "📚 **Documentation:** [Text API Docs](https://dot.mindreset.tech/docs/server/template/api/text_api)"
+    "📚 **Documentation:** [Text API Docs](https://dot.mindreset.tech/docs/service/open/text_api)"
 )

@@ -38,9 +38,9 @@ Send text content to your Quote/0 device
 
 - [Official Website](https://sspai.com/create/quote0)
 - [Quote/0 Documentation](https://dot.mindreset.tech/docs/quote_0)
-- [API Documentation](https://dot.mindreset.tech/docs/server/template/api)
-- [Image API Docs](https://dot.mindreset.tech/docs/server/template/api/image_api)
-- [Text API Docs](https://dot.mindreset.tech/docs/server/template/api/text_api)
+- [API Documentation](https://dot.mindreset.tech/docs/service/open/what_is_api)
+- [Image API Docs](https://dot.mindreset.tech/docs/service/open/image_api)
+- [Text API Docs](https://dot.mindreset.tech/docs/service/open/text_api)
 """
 )
 

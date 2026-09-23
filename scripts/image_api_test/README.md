@@ -19,7 +19,10 @@ quote0 image --preset CHECKERBOARD_GRAY
 quote0 image --file image.png --border WHITE
 ```
 
-## Legacy methods (still work)
+## Direct curl and pipeline examples
+
+The shell scripts use `/api/authV2/open/device/{deviceId}/image`, with
+`DOT_DEVICE_ID` in the URL and `DOT_API_KEY` for Bearer authentication.
 
 ```bash
 # Pipe Python output to plot

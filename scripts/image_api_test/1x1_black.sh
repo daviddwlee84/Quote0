@@ -1,11 +1,10 @@
 #!/bin/bash
 curl -X POST \
-  https://dot.mindreset.tech/api/open/image \
+  "https://dot.mindreset.tech/api/authV2/open/device/${DOT_DEVICE_ID}/image" \
   -H "Authorization: Bearer $DOT_API_KEY" \
   -H 'Content-Type: application/json' \
   --data-raw "{
     \"refreshNow\": true,
-    \"deviceId\": \"$DOT_DEVICE_ID\",
     \"image\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR42mNgYGAAAAAEAAHI6uv5AAAAAElFTkSuQmCC\",
     \"border\": 0
   }"

@@ -447,5 +447,5 @@ with col2:
 # Footer
 st.markdown("---")
 st.markdown(
-    "📚 **Documentation:** [Image API Docs](https://dot.mindreset.tech/docs/server/template/api/image_api)"
+    "📚 **Documentation:** [Image API Docs](https://dot.mindreset.tech/docs/service/open/image_api)"
 )

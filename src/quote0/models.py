@@ -15,7 +15,7 @@ class BorderColor(IntEnum):
 
 
 class ImageApiRequest(BaseModel):
-    """Image API request payload"""
+    """Image request data; the client sends deviceId in the V2 URL, not the body."""
 
     refreshNow: bool = Field(
         default=True, description="Whether to refresh display immediately"
@@ -36,7 +36,7 @@ class ImageApiRequest(BaseModel):
 
 
 class TextApiRequest(BaseModel):
-    """Text API request payload"""
+    """Text request data; the client sends deviceId in the V2 URL, not the body."""
 
     refreshNow: bool = Field(
         default=True, description="Whether to refresh display immediately"

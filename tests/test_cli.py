@@ -134,10 +134,25 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         self.client_class.assert_not_called()
-        fetch.assert_called_once_with(["codex", "claude"])
+        fetch.assert_called_once_with(["codex", "claude"], timeout=120)
         with Image.open(target) as image:
             self.assertEqual(image.size, (296, 152))
             self.assertEqual(image.format, "PNG")
+
+    def test_quota_custom_timeout_is_forwarded(self):
+        fetch = self.quota_mocks()
+        code, _, _ = self.invoke(
+            "apps",
+            "quota",
+            "--providers",
+            "claude",
+            "--timeout",
+            "180",
+            "--output",
+            str(self.directory / "quota.png"),
+        )
+        self.assertEqual(code, 0)
+        fetch.assert_called_once_with(["claude"], timeout=180)
 
     def test_quota_delivery_encodes_rendered_png(self):
         self.quota_mocks()
