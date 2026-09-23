@@ -289,6 +289,22 @@ def _name(provider: str) -> str:
     return _PROVIDER_NAMES.get(provider, provider.replace("-", " ").title())
 
 
+def _footer(quotas: Sequence[ProviderQuota], current: datetime) -> str:
+    source_times = [
+        quota.updated_at
+        for quota in quotas
+        if quota.updated_at is not None and not quota.error
+    ]
+    if source_times:
+        stamp = min(source_times).astimezone(current.tzinfo)
+        footer = "Updated " + stamp.strftime("%m-%d %H:%M")
+    elif all(quota.error for quota in quotas):
+        footer = "Checked " + current.strftime("%m-%d %H:%M")
+    else:
+        footer = "Updated --"
+    return footer
+
+
 def render_quota(
     quotas: Sequence[ProviderQuota], *, now: Optional[datetime] = None
 ) -> Image.Image:
@@ -310,7 +326,7 @@ def render_quota(
     if len(quotas) == 1:
         quota = quotas[0]
         _text(draw, (6, 27), _name(quota.provider), _font(16, True), 284)
-        if quota.error:
+        if quota.error or not quota.windows:
             _text(draw, (6, 62), "ERR  Unavailable", _font(16), 284)
             _text(draw, (6, 87), "Check CodexBar", _font(12), 284)
         else:
@@ -347,7 +363,7 @@ def render_quota(
             windows = {window.slot: window for window in quota.windows}
             primary = windows.get("primary")
             requests = primary.request_usage if primary else None
-            if quota.error:
+            if quota.error or not quota.windows:
                 _text(draw, (113, y), "ERR  Unavailable", _font(12), 176)
             elif requests is not None:
                 used, limit = requests
@@ -361,7 +377,7 @@ def render_quota(
                         draw, (x, y), label + " " + _percent(window), _font(12), width
                     )
             if len(quotas) <= 3:
-                if quota.error:
+                if quota.error or not quota.windows:
                     resets = "Check CodexBar"
                 elif requests is not None:
                     resets = "Req {}/{} used · reset {}".format(
@@ -376,18 +392,7 @@ def render_quota(
             if index < len(quotas) - 1:
                 draw.line((6, y + row_height - 3, 289, y + row_height - 3), fill=0)
 
-    source_times = [
-        quota.updated_at
-        for quota in quotas
-        if quota.updated_at is not None and not quota.error
-    ]
-    if source_times:
-        stamp = min(source_times).astimezone(current.tzinfo)
-        footer = "Updated " + stamp.strftime("%m-%d %H:%M")
-    elif all(quota.error for quota in quotas):
-        footer = "Checked " + current.strftime("%m-%d %H:%M")
-    else:
-        footer = "Updated --"
+    footer = _footer(quotas, current)
     draw.line((6, 135, 289, 135), fill=0)
     _text(draw, (6, 139), footer, _font(10), 284)
     return image

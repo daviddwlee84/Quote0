@@ -1,11 +1,21 @@
-# Copy to quote0.toml and replace the device IDs.
-# Store the referenced keys in the environment or the working directory's .env.
-# Content, providers, and scheduling belong in your own commands/scripts.
+# Run `quote0 config init` to discover devices and generate this structure.
+# Store credentials in the environment or cwd/.env, never in this file.
+# Content, providers, and scheduling belong in commands/scripts.
 
-[devices.desk]
-device_id = "DEVICE_A"
+[defaults]
+account = "personal"
+device = "desk"
+
+[accounts.personal]
 api_key_env = "DOT_API_KEY"
 
+[devices.desk]
+account = "personal"
+device_id = "DEVICE_A"
+
 [devices.side]
+account = "personal"
 device_id = "DEVICE_B"
-api_key_env = "DOT_SIDE_API_KEY"
+
+# For a different account, add [accounts.office] with its own api_key_env,
+# then reference account = "office" from that device.

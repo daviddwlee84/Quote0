@@ -99,8 +99,10 @@ class CliTests(unittest.TestCase):
     def test_named_devices_and_config_path(self):
         config = self.directory / "devices.toml"
         config.write_text(
-            '[devices.desk]\ndevice_id="a"\napi_key_env="DESK_KEY"\n'
-            '[devices.side]\ndevice_id="b"\napi_key_env="SIDE_KEY"\n',
+            '[accounts.personal]\napi_key_env="DESK_KEY"\n'
+            '[accounts.office]\napi_key_env="SIDE_KEY"\n'
+            '[devices.desk]\ndevice_id="a"\naccount="personal"\n'
+            '[devices.side]\ndevice_id="b"\naccount="office"\n',
             encoding="utf-8",
         )
         os.environ.update(DESK_KEY="key-a", SIDE_KEY="key-b", DOT_DEVICE_ID="unrelated")

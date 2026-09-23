@@ -44,6 +44,13 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/quote0"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src", "/tests", "/examples", "/docs", "/scripts", "/pages",
+    "/Streamlit_Playground.py", "/shared_components.py", "/README.md",
+    "/LICENSE", "/pyproject.toml", "/quote0.example.toml", "/.env.example",
+]
+
 [dependency-groups]
 dev = [
     "black>=25.1.0",

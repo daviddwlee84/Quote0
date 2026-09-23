@@ -1,0 +1,18 @@
+{
+  "taskAlias": "Canvas example",
+  "data": {"title": "Hello Canvas", "message": "A reusable Quote/0 card"},
+  "windowData": {
+    "default": [{
+      "type": "div",
+      "props": {
+        "tw": "flex flex-col w-full h-full bg-white text-black justify-center",
+        "style": {"gap": 8},
+        "children": [
+          {"type": "span", "props": {"tw": "text-24-chillduansans", "children": "{{get inputData \"title\" default=\"Hello\"}}"}},
+          {"type": "span", "props": {"tw": "text-16-chillduansans", "children": "{{get inputData \"message\" default=\"\"}}"}}
+        ]
+      }
+    }]
+  },
+  "border": 0
+}

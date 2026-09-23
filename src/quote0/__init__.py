@@ -2,8 +2,16 @@
 Quote/0 Python API Package
 """
 
-from .client import Quote0
+from .client import DotClient, Quote0
 from .models import (
+    CanvasApiRequest,
+    DeviceInfo,
+    DeviceSettingsRequest,
+    DeviceSettings,
+    DeviceStatus,
+    DeviceTask,
+    TimezoneInfo,
+    TextStyles,
     ImageApiRequest,
     TextApiRequest,
     ApiResponse,
@@ -21,6 +29,15 @@ __version__ = "0.1.1"
 
 __all__ = [
     "Quote0",
+    "DotClient",
+    "CanvasApiRequest",
+    "DeviceInfo",
+    "DeviceSettingsRequest",
+    "DeviceSettings",
+    "DeviceStatus",
+    "DeviceTask",
+    "TimezoneInfo",
+    "TextStyles",
     "ImageApiRequest",
     "TextApiRequest",
     "ApiResponse",

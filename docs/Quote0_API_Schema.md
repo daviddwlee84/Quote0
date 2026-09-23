@@ -1,68 +1,124 @@
-# Quote/0 API Schema
+# Quote/0 OpenAPI support
 
-## Endpoint 与认证
+Base: `https://dot.mindreset.tech/api/authV2/open`. All operations use
+`Authorization: Bearer <API key>`; POST bodies use JSON. Device IDs are escaped URL
+path segments and are not sent in request bodies.
 
-| API | 请求 |
+| SDK method | Method and path |
 | --- | --- |
-| Text | `POST https://dot.mindreset.tech/api/authV2/open/device/{deviceId}/text` |
-| Image | `POST https://dot.mindreset.tech/api/authV2/open/device/{deviceId}/image` |
+| `DotClient.list_devices()` | `GET /devices` |
+| `DotClient.list_timezones()` | `GET /timezones` |
+| `Quote0.get_status()` | `GET /device/{id}/status` |
+| `Quote0.list_tasks("loop" or "fixed")` | `GET /device/{id}/{taskType}/list` |
+| `Quote0.next_content()` | `POST /device/{id}/next` |
+| `Quote0.send_text(...)` | `POST /device/{id}/text` |
+| `Quote0.send_image(...)` | `POST /device/{id}/image` |
+| `Quote0.send_canvas(window_data, ...)` | `POST /device/{id}/canvas` |
+| `Quote0.get_settings()` | `GET /device/{id}/settings` |
+| `Quote0.update_settings(dict_or_model)` | `POST /device/{id}/settings` |
 
-`deviceId` 是必填的 URL 路径参数，不再放入 JSON 请求体。请求头使用
-`Authorization: Bearer <API key>` 和 `Content-Type: application/json`。
+`Quote0` inherits the account queries. Existing `Quote0(api_key, device_id)`,
+`send_text()` and `send_image(image_base64=...)` calls remain supported.
+`send_image(image=...)` is the more general alternative for a public URL or Base64.
+Do not supply both image arguments. The exported Text/Image request models retain
+`deviceId` for existing callers; the client excludes it when sending.
 
-旧版 `/api/open/text` 与 `/api/open/image` 已弃用；官方目前仍说明它们会转发到新版，
-但未来可能取消转发。Quote0 已直接使用新版接口。
+## Responses and failures
 
-以下请求体表列出 Quote0 client 支持的字段。Python 导出的 `ImageApiRequest` 与
-`TextApiRequest` 仍保留 `deviceId` 字段以兼容原有调用，client 发送 JSON 时会排除该字段。
-`Quote0(api_key, device_id)`、`send_image()` 和 `send_text()` 的调用方式不变。
+Every SDK operation returns `ApiResponse[T]` with `success`, `status_code`,
+`response`, `message`, and `error`. Successful queries contain typed data:
+`list[DeviceInfo]`, `list[TimezoneInfo]`, `DeviceStatus`, `list[DeviceTask]`, or
+`DeviceSettings`. Read models preserve additional server fields.
 
-## Text API
+Successful controls contain the server's JSON object, usually `{ "message": "..." }`.
+HTTP status determines success; legacy `code`/`result` fields are not interpreted.
+Error JSON objects remain available in `response`. Invalid JSON or an unexpected
+successful response shape becomes a failed `ApiResponse`. Local validation errors
+raise `ValueError` (including Pydantic `ValidationError`); CLI commands report them
+and exit nonzero. `--json` prints only query data to stdout; errors go to stderr.
 
-| 字段名       | 类型     | 必填 | 默认值 | 说明                                  | 用途                     |
-| ------------ | -------- | ---- | ------ | ------------------------------------- | ------------------------ |
-| `refreshNow` | `bool`   | 否   | `true` | 是否立刻显示内容                      | 控制内容的显示时机       |
-| `title`      | `string` | 否   |        | 文本标题                              | 显示在屏幕上的标题       |
-| `message`    | `string` | 否   |        | 文本内容                              | 显示在屏幕上的内容       |
-| `signature`  | `string` | 否   |        | 文本签名                              | 显示在屏幕上的签名       |
-| `icon`       | `string` | 否   |        | base64 编码 PNG 图标数据（40px*40px） | 显示在屏幕左下角上的图标 |
-| `link`       | `string` | 否   |        | http/https 链接或 Scheme Url          | 碰一碰跳转的内容         |
+Requests have a 30-second timeout and are not automatically retried. The official
+rate limit is 10 requests/second; callers should handle 429 without repeatedly
+resending writes. A 404 can indicate a missing device or missing matching API
+content in its Loop, rather than an obsolete endpoint. Content must first be added
+in Dot App Content Studio. Success means the server accepted the operation, not
+that a sleeping/battery-powered device has already displayed it.
 
-## Image API
+## Content options
 
-| 字段名         | 类型     | 必填 | 默认值            | 说明                                                                                                                                                                    | 用途               |
-| -------------- | -------- | ---- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| `refreshNow`   | `bool`   | 否   | `true`            | 是否立刻显示内容                                                                                                                                                        | 控制内容的显示时机 |
-| `image`        | `string` | 是   |                   | base64 编码 PNG 图像数据（296px*152px）                                                                                                                                 | 屏幕呈现的图像     |
-| `link`         | `string` | 否   |                   | http/https 链接或 Scheme Url                                                                                                                                            | 碰一碰跳转的内容   |
-| `border`       | `number` | 否   | `0`               | `0` 代表白色边框，`1` 代表黑色边框                                                                                                                                      | 屏幕呈现的边框     |
-| `ditherType`   | `string` | 否   | `DIFFUSION`       | 抖动类型（可选：`DIFFUSION`、`ORDERED`、`NONE`）                                                                                                                        | 控制图像的抖动效果 |
-| `ditherKernel` | `string` | 否   | `FLOYD_STEINBERG` | 抖动算法（可选：`THRESHOLD`、`ATKINSON`、`BURKES`、`FLOYD_STEINBERG`、`SIERRA2`、`STUCKI`、`JARVIS_JUDICE_NINKE`、`DIFFUSION_ROW`、`DIFFUSION_COLUMN`、`DIFFUSION_2D`） | 控制图像的抖动算法 |
+Text, Image and Canvas accept `refresh_now` (default true), `task_key` and
+`task_alias`, serialized as `refreshNow`, `taskKey`, and `taskAlias`.
+Use a task's `key` returned by `list_tasks()` to target a particular content item.
+Without a key the server chooses its first matching item.
 
-## Response
+Task listing is read-only. The published OpenAPI has no task creation, deletion,
+reordering or enable/disable endpoint; those remain Dot App operations.
+`refreshNow=false` controls immediate display, not whether the task is enabled.
 
-新版使用 **HTTP 状态码** 表示请求结果，成功与失败的 JSON 响应体均使用 `message`，
-不再依赖旧版响应中的 `code` 或 `result`。
+Omitting `task_alias` preserves the name. An empty string or explicit `None` clears
+it. The SDK uses an omission sentinel so that a default call never clears aliases.
+Strings may contain at most 100 characters; numeric aliases are also accepted.
+CLI `--task-alias ""` explicitly clears a name.
 
-| 字段名    | 类型     | 说明     |
-| --------- | -------- | -------- |
-| `message` | `string` | 响应描述 |
+| Content | Additional fields |
+| --- | --- |
+| Text | `title`, `message`, `signature`, `icon`, `link`, `styles` |
+| Image | `image`, `border`, `link`, `ditherType`, `ditherKernel` |
+| Canvas | `windowData`, `data`, `layoutFull`, `border`, `link` |
 
-```json
-{"message": "Device ABCD1234ABCD Image API content switched."}
-```
+`border` is 0 (white) or 1 (black). Image dither types are `DIFFUSION`, `ORDERED`,
+`NONE`; kernels follow the official schema. Text preserves message newlines/tabs.
+Icon and image strings may be PNG Base64, PNG data URIs, or public http(s) image URLs.
+Icon Base64 decodes to at most 1 MB; Image Base64 to at most 3 MB. Remote URLs must
+be anonymously accessible, at most 2048 characters, and directly return image
+content of at most 3 MB. CLI local-file checks enforce the respective byte limits;
+remote content/format validation remains server-side.
 
-| HTTP 状态码 | 含义             | 描述 |
-| ----------- | ---------------- | ---- |
-| `200` | 成功             | API 内容已切换，或数据已更新但未切换内容 |
-| `400` | 参数错误         | 设备 ID 缺失或格式错误、无效的图像/图标、边框或抖动参数错误等 |
-| `403` | 权限不足         | 当前 API key 无权操作此设备 |
-| `404` | 设备或内容不存在 | 设备不存在或未注册，或设备 Loop 中未添加对应的 Image API / Text API 内容 |
-| `500` | 设备响应失败     | API 内容切换失败 |
+Text `styles.title`/`styles.signature` support `fontFamily`, `fontSize` (8–48), and
+`fontWeight` (100–900 in steps of 100); `styles.message` additionally supports
+`lineHeight` (0.8–3). Font names use the official Text API vocabulary, e.g.
+`ChillDuanSans`, `FusionPixel12`, `Zpix12`.
 
-出现 404 时应检查装置序号和 Loop 内容，不能仅凭状态码认定 endpoint 已被移除。
-Quote0 的 `ApiResponse.status_code` 保留 HTTP 状态，`response` 保留解析后的 JSON 对象
-（包括 HTTP 错误响应），`message` 展示服务器信息，`error` 提供失败详情。
+## Canvas validation and export
 
-官方文档：[Text API](https://dot.mindreset.tech/docs/service/open/text_api)、
-[Image API](https://dot.mindreset.tech/docs/service/open/image_api)。
+`CanvasApiRequest` requires `windowData.default` to be an array. Nodes use `type`
+(`div`, `span`, `img`) and `props` with `tw`, `style`, and `children`. The validator
+also accepts documented `$for`/`$empty` and `$ifAny`/`$then`/`$else` structures.
+Templates are strings; the client does not execute or compile them.
+
+Local checks cover JSON shape, reserved keys, disallowed event/HTML properties,
+80 static elements, nesting depth 16, strings of at most 4000 characters in
+windowData, and UTF-8 JSON sizes: data 64 KiB, windowData 128 KiB, layoutFull 8 KiB.
+They do not guarantee font metrics, supported CSS semantics, remote images, or
+server-expanded loop geometry. No browser/JS or offline server-rendering clone is
+included. Failures identify the JSON path.
+
+Canvas JSON files use the public request field names. Explicit CLI task flags
+override the corresponding fields; `--no-refresh` forces false and otherwise the
+file's value is preserved. `--validate-only` runs before credential/device
+resolution. Quota Canvas exports include data/layout without credentials or a
+device binding, and can be sent with the generic Canvas CLI.
+
+## Settings
+
+Updates accept at least one of `alias`, `location`, `timezone`, `interval`, `sleep`.
+Omitted fields are preserved; explicit `null`/empty string clears only alias or
+location. Names are at most 100 characters. Unknown fields and null values for
+other settings are rejected locally.
+
+`interval.powerMs`/`batteryMs` must be integers in 60,000–43,200,000, in multiples
+of 60,000. Either or both can be updated. A supplied sleep object requires boolean
+`enabled`, `start` and `end` in local `HH:mm`; equal times are invalid, crossing
+midnight is valid. A timezone update first queries `/timezones` and requires an
+exact returned key; query failure prevents the settings POST.
+
+## Sources
+
+Schemas were checked against the official
+[Dot OpenAPI schema](https://github.com/MindReset/dot_skill/blob/main/openapi/dot-openapi.yaml).
+See [Text](https://dot.mindreset.tech/docs/service/open/text_api),
+[Image](https://dot.mindreset.tech/docs/service/open/image_api),
+[Canvas](https://dot.mindreset.tech/docs/service/open/canvas_api),
+[Device List](https://dot.mindreset.tech/docs/service/open/list_devices_api), and
+[Settings](https://dot.mindreset.tech/docs/service/open/device_settings_api).
+The package has no runtime dependency on the separately installed skills or MCP.
