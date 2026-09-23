@@ -15,11 +15,21 @@ def main():
     parser.add_argument("--providers", nargs="+", required=True)
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("--output-dir", type=Path, default=Path("quota-comparison"))
+    parser.add_argument(
+        "--canvas-style", choices=("compact", "cards"), default="compact"
+    )
+    parser.add_argument(
+        "--card-theme", choices=("light", "dark", "alternating"), default="alternating"
+    )
     args = parser.parse_args()
+    if args.card_theme != "alternating" and args.canvas_style != "cards":
+        parser.error("--card-theme requires --canvas-style cards")
     quotas = fetch_quotas(args.providers, timeout=args.timeout)
     now = datetime.now().astimezone()
     picture = render_quota(quotas, now=now)
-    canvas = render_quota_canvas(quotas, now=now)
+    canvas = render_quota_canvas(
+        quotas, now=now, style=args.canvas_style, card_theme=args.card_theme
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     picture.save(args.output_dir / "quota.png", format="PNG")
     (args.output_dir / "quota.json").write_text(

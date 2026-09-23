@@ -111,6 +111,10 @@ class Quota(DeviceOptions):
     output: Optional[Path] = None
     """Only save a PNG (image) or JSON (canvas); no device credentials required"""
     renderer: Literal["image", "canvas"] = "image"
+    canvas_style: Literal["compact", "cards"] = "compact"
+    """Canvas layout: compact rows or side-by-side cards for 1–3 providers"""
+    card_theme: Literal["light", "dark", "alternating"] = "alternating"
+    """Card colors: white background, black background, or contrasting cards (Canvas cards only)"""
     timeout: float = 120
     """Maximum seconds to wait for each CodexBar provider"""
 
@@ -410,6 +414,12 @@ def quota_command(config: Quota) -> None:
     from .apps.quota import fetch_quotas, render_quota, validate_providers
 
     validate_providers(config.providers)
+    if config.renderer != "canvas" and config.canvas_style != "compact":
+        raise ValueError("--canvas-style cards requires --renderer canvas")
+    if config.card_theme != "alternating" and (
+        config.renderer != "canvas" or config.canvas_style != "cards"
+    ):
+        raise ValueError("--card-theme requires --renderer canvas --canvas-style cards")
     if (
         config.renderer == "canvas"
         and config.output is not None
@@ -424,7 +434,9 @@ def quota_command(config: Quota) -> None:
     if config.renderer == "canvas":
         from .apps.quota_canvas import render_quota_canvas
 
-        payload = render_quota_canvas(quotas)
+        payload = render_quota_canvas(
+            quotas, style=config.canvas_style, card_theme=config.card_theme
+        )
         if config.output is not None:
             config.output.write_text(_json(payload) + "\n", encoding="utf-8")
         else:
@@ -433,7 +445,7 @@ def quota_command(config: Quota) -> None:
                     payload["windowData"],
                     data=payload["data"],
                     layout_full=payload.get("layoutFull"),
-                    border=BorderColor.WHITE,
+                    border=payload.get("border", BorderColor.WHITE),
                     refresh_now=not config.no_refresh,
                     **_task_options(config),
                 )

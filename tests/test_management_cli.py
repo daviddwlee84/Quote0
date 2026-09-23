@@ -280,6 +280,92 @@ class ManagementCliTests(unittest.TestCase):
         self.assertEqual(payload["data"]["providers"][0]["windows"][0]["percent"], "0%")
         self.assertEqual(self.invoke("canvas", "--file", "quota.json")[0], 0)
 
+    def test_card_style_export_and_image_mismatch(self):
+        quotas = [
+            ProviderQuota(name, (QuotaWindow("primary", "5h", 75),))
+            for name in ("codex", "claude", "gemini")
+        ]
+        with patch("quote0.apps.quota.fetch_quotas", return_value=quotas) as fetch:
+            code, _, err = self.invoke(
+                "apps",
+                "quota",
+                "--providers",
+                "codex",
+                "claude",
+                "gemini",
+                "--renderer",
+                "canvas",
+                "--canvas-style",
+                "cards",
+                "--output",
+                "cards.json",
+            )
+            self.assertEqual(code, 0, err)
+            payload = json.loads(Path("cards.json").read_text())
+            self.assertEqual(payload["data"]["serviceCount"], "3 SERVICES")
+            self.Quote0.assert_not_called()
+            fetch.reset_mock()
+            self.assertEqual(
+                self.invoke(
+                    "apps", "quota", "--providers", "codex", "--canvas-style", "cards"
+                )[0],
+                1,
+            )
+            fetch.assert_not_called()
+
+    def test_card_theme_export_delivery_and_invalid_modes(self):
+        quotas = [ProviderQuota("codex", (QuotaWindow("primary", "5h", 75),))]
+        with patch("quote0.apps.quota.fetch_quotas", return_value=quotas) as fetch:
+            code, _, err = self.invoke(
+                "apps",
+                "quota",
+                "--providers",
+                "codex",
+                "--renderer",
+                "canvas",
+                "--canvas-style",
+                "cards",
+                "--card-theme",
+                "dark",
+                "--output",
+                "dark.json",
+            )
+            self.assertEqual(code, 0, err)
+            payload = json.loads(Path("dark.json").read_text())
+            self.assertEqual(payload["border"], 1)
+            self.Quote0.assert_not_called()
+            self.assertEqual(
+                self.invoke(
+                    "apps",
+                    "quota",
+                    "--providers",
+                    "codex",
+                    "--renderer",
+                    "canvas",
+                    "--canvas-style",
+                    "cards",
+                    "--card-theme",
+                    "dark",
+                )[0],
+                0,
+            )
+            self.assertEqual(self.client.send_canvas.call_args.kwargs["border"], 1)
+            fetch.reset_mock()
+            for extra in ([], ["--renderer", "canvas"]):
+                self.assertEqual(
+                    self.invoke(
+                        "apps",
+                        "quota",
+                        "--providers",
+                        "codex",
+                        "--card-theme",
+                        "light",
+                        *extra,
+                    )[0],
+                    1,
+                )
+            fetch.assert_not_called()
+
     def test_canvas_quota_delivery_and_failed_export_exit(self):
         quota = ProviderQuota("codex", error="Unavailable")
         with patch("quote0.apps.quota.fetch_quotas", return_value=[quota]):

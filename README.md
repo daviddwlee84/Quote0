@@ -247,6 +247,10 @@ quote0 apps quota --providers codex claude --device desk \
 quote0 apps quota --providers codex claude --renderer canvas --output quota.json
 quote0 canvas --file quota.json --validate-only
 
+# Three equal-width information cards, ordered left to right
+quote0 apps quota --providers codex claude cursor --device desk \
+  --renderer canvas --canvas-style cards --task-key CANVAS_TASK_KEY
+
 # Fetch once, then export both versions using one snapshot and reference time
 uv run python examples/quota_compare.py --providers codex claude --output-dir /tmp/quota-compare
 ```
@@ -255,6 +259,33 @@ Canvas uses the same provider ordering, remaining amounts, request counts, reset
 timing and source timestamp as Image. JSON export is not a visual preview: compare
 it on hardware after adding Canvas content. A successful API response does not
 prove the device has displayed it, especially while running on battery and asleep.
+
+`--canvas-style compact` is the default row layout. `--canvas-style cards` uses
+rounded monochrome cards with large remaining percentages and progress bars:
+one provider gets a main card plus secondary windows; two or three get equal-width
+cards from left to right; four to six use a two-column grid. The card style retains
+missing values, provider failures, request counts and the source timestamp.
+It is only available with `--renderer canvas`. The comparison example also accepts
+`--canvas-style cards`; PNG output remains unchanged.
+
+Cards support three color themes with `--card-theme`:
+
+| Theme | Appearance |
+| --- | --- |
+| `light` | White background and cards, black text and outlines |
+| `dark` | Black background and cards, white text and outlines |
+| `alternating` | Existing contrasting card colors on a black background (default) |
+
+The theme applies to card text, progress bars, the header/footer and the screen
+border. It requires `--renderer canvas --canvas-style cards`; it does not affect
+Image output or the compact Canvas layout. The Python renderer accepts
+`render_quota_canvas(quotas, style="cards", card_theme="light")`, and the comparison
+example accepts the same `--card-theme` choices.
+
+```bash
+quote0 apps quota --device desk --providers codex claude cursor \
+  --renderer canvas --canvas-style cards --card-theme light
+```
 
 | Services | Automatic layout |
 | --- | --- |
