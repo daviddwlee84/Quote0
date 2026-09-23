@@ -293,6 +293,66 @@ quote0 apps quota --device desk --providers codex claude cursor \
 | 2–3 | Two windows per service, with remaining percentages and reset countdowns |
 | 4–6 | One row per service, with two remaining percentages |
 
+#### Optional pace hints and quota focus
+
+The existing simple view remains the default. Two independent options work with
+Image, compact Canvas and Canvas cards:
+
+| Option | Default | Behavior |
+| --- | --- | --- |
+| `--pace` / `--no-pace` | Off | Show long-window usage pace and an exhaustion estimate |
+| `--quota-focus primary\|long` | `primary` | Keep the usual main quota, or emphasize the longest known daily/weekly/monthly window |
+
+```bash
+# Weekly/monthly quota first, with pace hints
+quote0 apps quota --device david --providers codex claude cursor \
+  --renderer canvas --canvas-style cards --card-theme light \
+  --pace --quota-focus long
+
+# Keep Session as the main value; still show the weekly pace
+quote0 apps quota --providers codex claude --pace --quota-focus primary --output quota.png
+
+# Long quota focus without adding pace information
+quote0 apps quota --providers codex claude --no-pace --quota-focus long --output quota.png
+
+# Compare Image and Canvas from one snapshot and reference time
+uv run python examples/quota_compare.py --providers codex claude cursor \
+  --canvas-style cards --pace --quota-focus long --output-dir /tmp/quota-pace
+```
+
+Pace comes directly from CodexBar's structured `pace` JSON (verified with 0.65.0),
+not a new local estimate of monthly length or a parse of its summary string.
+`7d OVER 13pp` means 13 **percentage points** more quota has been used than the
+expected progress; `30d RES 36pp` means 36 points of reserve. `ON PACE` follows
+CodexBar's near-target classification. Positive compact values such as `7d +13pp`
+mean over pace; negative values mean reserve.
+
+`OUT ~2d17h` is the estimated time until exhaustion; `~TO RESET` is the upstream
+estimate that quota will last until reset. Neither is a guarantee. Values reflect
+the fetched snapshot; ETA counts down from when that result was received. The
+footer continues to show source freshness. `PACE --` / `ETA --` mean unavailable,
+not zero or healthy. Invalid optional pace never discards valid quota values or
+causes the command to fail. Older CodexBar versions without pace remain usable.
+
+The evaluated window is the longest reported duration of at least 24 hours, with
+ties resolved secondary, primary, then tertiary. No duration is inferred from a
+label such as `Weekly` or `Req`. Unknown durations, missing/expired resets, or pace
+inconsistent with displayed usage by more than 1 percentage point suppress the
+hint. `long` focus falls back to the usual main quota if no long window is known;
+the raw slots and values remain unchanged.
+
+One to four providers show deviation and forecast. Five or six show compact
+deviation only. Pace mode may replace secondary reset countdowns to keep values,
+request counts and hints readable; `--no-pace` restores the simple layout.
+Where a bar represents the evaluated window, a contrasting tick marks expected
+**remaining** quota (`100 - expectedUsedPercent`). A weekly marker never appears
+on a Session bar. All three card themes support the hints.
+
+Python callers can pass `pace=True, quota_focus="long"` to `render_quota()` and
+`render_quota_canvas()`. `QuotaWindow` now retains optional `window_minutes` and
+`pace` (`QuotaPace`) fields; existing positional arguments retain their meaning.
+All these options describe content and stay out of the device configuration.
+
 Window labels use the reported duration, or `P` / `S` / `T` for primary,
 secondary, and tertiary when duration is unavailable. `--` means unavailable
 data; `ERR` means fetching failed. The footer shows the oldest successful source

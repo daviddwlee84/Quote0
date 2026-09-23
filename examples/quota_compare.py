@@ -21,14 +21,23 @@ def main():
     parser.add_argument(
         "--card-theme", choices=("light", "dark", "alternating"), default="alternating"
     )
+    parser.add_argument("--pace", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--quota-focus", choices=("primary", "long"), default="primary")
     args = parser.parse_args()
     if args.card_theme != "alternating" and args.canvas_style != "cards":
         parser.error("--card-theme requires --canvas-style cards")
     quotas = fetch_quotas(args.providers, timeout=args.timeout)
     now = datetime.now().astimezone()
-    picture = render_quota(quotas, now=now)
+    picture = render_quota(
+        quotas, now=now, pace=args.pace, quota_focus=args.quota_focus
+    )
     canvas = render_quota_canvas(
-        quotas, now=now, style=args.canvas_style, card_theme=args.card_theme
+        quotas,
+        now=now,
+        style=args.canvas_style,
+        card_theme=args.card_theme,
+        pace=args.pace,
+        quota_focus=args.quota_focus,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     picture.save(args.output_dir / "quota.png", format="PNG")

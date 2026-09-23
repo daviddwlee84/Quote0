@@ -366,6 +366,58 @@ class ManagementCliTests(unittest.TestCase):
                 )
             fetch.assert_not_called()
 
+    def test_pace_and_focus_are_independent_and_exports_fetch_once(self):
+        quota = ProviderQuota(
+            "codex",
+            (
+                QuotaWindow("primary", "5h", 100, window_minutes=300),
+                QuotaWindow("secondary", "7d", 54, window_minutes=10080),
+            ),
+        )
+        for renderer in ("image", "canvas"):
+            for show in (False, True):
+                for focus in ("primary", "long"):
+                    with self.subTest(renderer=renderer, pace=show, focus=focus):
+                        name = "pace.json" if renderer == "canvas" else "pace.png"
+                        with patch(
+                            "quote0.apps.quota.fetch_quotas", return_value=[quota]
+                        ) as fetch:
+                            code, _, err = self.invoke(
+                                "apps",
+                                "quota",
+                                "--providers",
+                                "codex",
+                                "--renderer",
+                                renderer,
+                                "--pace" if show else "--no-pace",
+                                "--quota-focus",
+                                focus,
+                                "--device",
+                                "not-configured",
+                                "--output",
+                                name,
+                            )
+                        self.assertEqual(code, 0, err)
+                        fetch.assert_called_once_with(["codex"], timeout=120)
+                        self.Quote0.assert_not_called()
+                        if renderer == "canvas":
+                            data = json.loads(Path(name).read_text())["data"][
+                                "providers"
+                            ][0]
+                            self.assertEqual("pace" in data, show)
+                            self.assertEqual(
+                                data["windows"][0]["slot"],
+                                "secondary" if focus == "long" else "primary",
+                            )
+        with patch("quote0.apps.quota.fetch_quotas") as fetch:
+            self.assertNotEqual(
+                self.invoke(
+                    "apps", "quota", "--providers", "codex", "--quota-focus", "unknown"
+                )[0],
+                0,
+            )
+            fetch.assert_not_called()
+
     def test_canvas_quota_delivery_and_failed_export_exit(self):
         quota = ProviderQuota("codex", error="Unavailable")
         with patch("quote0.apps.quota.fetch_quotas", return_value=[quota]):

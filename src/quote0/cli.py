@@ -115,6 +115,10 @@ class Quota(DeviceOptions):
     """Canvas layout: compact rows or side-by-side cards for 1–3 providers"""
     card_theme: Literal["light", "dark", "alternating"] = "alternating"
     """Card colors: white background, black background, or contrasting cards (Canvas cards only)"""
+    pace: bool = False
+    """Show long-window usage pace and exhaustion estimates; off keeps the simple layout"""
+    quota_focus: Literal["primary", "long"] = "primary"
+    """Emphasize the primary quota or longest known daily/weekly/monthly window"""
     timeout: float = 120
     """Maximum seconds to wait for each CodexBar provider"""
 
@@ -435,7 +439,11 @@ def quota_command(config: Quota) -> None:
         from .apps.quota_canvas import render_quota_canvas
 
         payload = render_quota_canvas(
-            quotas, style=config.canvas_style, card_theme=config.card_theme
+            quotas,
+            style=config.canvas_style,
+            card_theme=config.card_theme,
+            pace=config.pace,
+            quota_focus=config.quota_focus,
         )
         if config.output is not None:
             config.output.write_text(_json(payload) + "\n", encoding="utf-8")
@@ -451,7 +459,7 @@ def quota_command(config: Quota) -> None:
                 )
             )
     else:
-        picture = render_quota(quotas)
+        picture = render_quota(quotas, pace=config.pace, quota_focus=config.quota_focus)
         if config.output is not None:
             picture.save(config.output, format="PNG")
         else:

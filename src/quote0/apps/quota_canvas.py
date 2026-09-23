@@ -1,18 +1,25 @@
 """Native Canvas quota rendering using the same snapshot and formatting as PNG."""
 
+from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Literal, Optional, Sequence
 
 from .quota import ProviderQuota, _footer, _name, _percent, _reset, validate_providers
+from .quota_pace import display_pair, display_windows, pace_hint, validate_focus
+from .quota import _display_resets
 from ..models import CanvasApiRequest
 
 
-def quota_display_data(quotas: Sequence[ProviderQuota], now: datetime) -> dict:
+def quota_display_data(
+    quotas: Sequence[ProviderQuota], now: datetime, *, pace=False, quota_focus="primary"
+) -> dict:
     """Only public display values, with JSON-safe types and no provider credentials."""
+    validate_focus(quota_focus)
     providers = []
     for quota in quotas:
         windows = []
-        for window in quota.windows[:3]:
+        hint = pace_hint(quota, now) if pace else None
+        for window in display_windows(quota.windows, quota_focus)[:3]:
             remaining = window.remaining_percent
             windows.append(
                 {
@@ -37,8 +44,14 @@ def quota_display_data(quotas: Sequence[ProviderQuota], now: datetime) -> dict:
                     ),
                 }
             )
-        by_slot = {window.slot: window for window in quota.windows}
-        primary, secondary = by_slot.get("primary"), by_slot.get("secondary")
+        if pace:
+            for view in windows:
+                view["paceMarker"] = (
+                    hint.expected_remaining_percent
+                    if view["slot"] == hint.slot
+                    else None
+                )
+        primary, secondary = display_pair(quota.windows, quota_focus)
         counts = primary.request_usage if primary is not None else None
         if counts is not None:
             used, limit = counts
@@ -64,6 +77,18 @@ def quota_display_data(quotas: Sequence[ProviderQuota], now: datetime) -> dict:
                 "resets": "Check CodexBar" if failed else resets,
             }
         )
+        if pace or quota_focus != "primary":
+            providers[-1]["resets"] = (
+                "Check CodexBar" if failed else _display_resets(primary, secondary, now)
+            )
+        if quota_focus != "primary":
+            providers[-1]["focusSlot"] = primary.slot if primary else "primary"
+            providers[-1]["secondSlot"] = secondary.slot if secondary else "secondary"
+        if pace:
+            providers[-1]["pace"] = {
+                **asdict(hint),
+                "line": hint.summary + " | " + hint.forecast,
+            }
     return {
         "title": "QUOTA LEFT",
         "providers": providers,
@@ -106,14 +131,22 @@ def _text(path=None, *, literal=None, width=None, size=14, bold=False):
 
 
 def _render_compact(
-    quotas: Sequence[ProviderQuota], *, now: Optional[datetime] = None
+    quotas: Sequence[ProviderQuota],
+    *,
+    now: Optional[datetime] = None,
+    pace=False,
+    quota_focus="primary",
 ) -> dict:
     """Return a reusable Canvas request, not a visual preview or a PNG wrapper."""
     validate_providers([quota.provider for quota in quotas])
     current = now if now is not None else datetime.now().astimezone()
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
-    data = quota_display_data(quotas, current)
+    data = quota_display_data(quotas, current, pace=pace, quota_focus=quota_focus)
+    if pace or quota_focus != "primary":
+        payload = _compact_insights(data, pace=pace)
+        CanvasApiRequest.model_validate(payload)
+        return payload
     rows = []
     if len(quotas) == 1:
         provider = data["providers"][0]
@@ -267,9 +300,9 @@ def _card(children, *, width, height, dark=False, padding=5, gap=2):
     )
 
 
-def _card_bar(path, width, *, dark=False):
+def _card_bar(path, width, *, dark=False, marker_percent=None, height=6):
     ink = "white" if dark else "black"
-    return _element(
+    bar = _element(
         [
             _element(
                 style={
@@ -281,13 +314,33 @@ def _card_bar(path, width, *, dark=False):
         ],
         style={
             "width": width,
-            "height": 6,
+            "height": height,
             "border": "1px solid " + ink,
             "borderRadius": 3,
             "overflow": "hidden",
             "flexShrink": 0,
         },
     )
+
+    if marker_percent is not None:
+        inner_height = height - 2
+        bar["props"]["children"][0]["props"]["style"]["flexShrink"] = 0
+        offset = max(0, min(width - 5, round((width - 2) * marker_percent / 100) - 1))
+        bar["props"]["children"].append(
+            _element(
+                style={
+                    "width": 3,
+                    "height": inner_height,
+                    "flexShrink": 0,
+                    "marginTop": -inner_height,
+                    "marginLeft": offset,
+                    "backgroundColor": "black" if dark else "white",
+                    "borderLeft": "1px solid " + ink,
+                    "borderRight": "1px solid " + ink,
+                }
+            )
+        )
+    return bar
 
 
 def _card_data(data):
@@ -305,8 +358,12 @@ def _card_data(data):
 
     for provider in data["providers"]:
         by_slot = {w["slot"]: w for w in provider["windows"]}
-        provider["primary"] = by_slot.get("primary", missing("P"))
-        provider["secondary"] = by_slot.get("secondary", missing("S"))
+        provider["primary"] = by_slot.get(
+            provider.get("focusSlot", "primary"), missing("P")
+        )
+        provider["secondary"] = by_slot.get(
+            provider.get("secondSlot", "secondary"), missing("S")
+        )
         provider["tertiary"] = by_slot.get("tertiary", missing("T"))
         primary, secondary = provider["primary"], provider["secondary"]
         provider["cardPrimaryReset"] = primary["label"] + " " + primary["reset"]
@@ -338,6 +395,8 @@ def _provider_card(data, index, width, *, dark=False):
             height=107,
             dark=dark,
         )
+    if "pace" in provider:
+        return _paced_provider_card(provider, path, width, dark=dark)
     # Two/three columns keep the main value large; supporting lines have fixed slots.
     narrow = width < 110
     main_size = 26 if narrow else 34
@@ -406,13 +465,16 @@ def _single_cards(data, theme):
         return _provider_card(data, 0, 288, dark=hero_dark)
     windows = provider["windows"]
     # Additional slots appear as secondary metric cards, not ornamental counters.
-    secondary = [w for w in windows if w["slot"] != "primary"][:2]
+    secondary = [
+        w for w in windows if w["slot"] != provider.get("focusSlot", "primary")
+    ][:2]
     hero_width = 180 if secondary else 288
     inner = hero_width - 14
     detail = provider["primary"]["reset"]
     if provider["primary"].get("hasRequestUsage", False):
         detail = provider["primary"]["detail"] + " · " + detail
     provider["heroDetail"] = detail
+    paced = "pace" in provider
     hero = _card(
         [
             _element(
@@ -429,41 +491,72 @@ def _single_cards(data, theme):
                     ),
                 ],
                 tw="flex flex-row items-center",
-                style={"height": 20, "flexShrink": 0},
+                style={"height": 18 if paced else 20, "flexShrink": 0},
             ),
             _card_text(
                 "providers.0.primary.percent",
-                size=38,
+                size=30 if paced else 38,
                 bold=True,
-                line_height=43,
+                line_height=33 if paced else 43,
                 color=hero_ink,
             ),
-            _card_bar("providers.0.primary", inner, dark=hero_dark),
+            _card_bar(
+                "providers.0.primary",
+                inner,
+                dark=hero_dark,
+                marker_percent=provider["primary"].get("paceMarker"),
+            ),
             _card_text(
                 "providers.0.heroDetail",
                 width=inner,
-                size=12,
-                line_height=15,
+                size=10 if paced else 12,
+                line_height=12 if paced else 15,
                 color=hero_ink,
             ),
         ],
         width=hero_width,
         height=107,
         padding=6,
-        gap=2,
+        gap=0 if paced else 2,
         dark=hero_dark,
     )
+    if paced:
+        hero["props"]["children"].extend(
+            [
+                _card_text(
+                    "providers.0.pace.summary",
+                    width=inner,
+                    size=11,
+                    bold=True,
+                    color=hero_ink,
+                    line_height=12,
+                ),
+                _card_text(
+                    "providers.0.pace.forecast",
+                    width=inner,
+                    size=11,
+                    color=hero_ink,
+                    line_height=12,
+                ),
+            ]
+        )
     if not secondary:
         return hero
     tiles = []
     tile_height = (107 - 5 * (len(secondary) - 1)) / len(secondary)
     for window in secondary:
-        path = f"providers.0.{window['slot']}"
+        path = (
+            f"providers.0.windows.{windows.index(window)}"
+            if "focusSlot" in provider
+            else f"providers.0.{window['slot']}"
+        )
         if len(secondary) == 1:
             children = [
                 _card_text(path + ".label", size=13, bold=True, color=side_ink),
                 _card_text(path + ".percent", size=28, bold=True, color=side_ink),
-                _card_bar(path, 90, dark=side_dark),
+                _card_bar(
+                    path, 90, dark=side_dark, marker_percent=window.get("paceMarker")
+                ),
                 _card_text(path + ".reset", width=90, size=11, color=side_ink),
             ]
         else:
@@ -507,6 +600,11 @@ def _dense_cards(data, theme):
             dark = _card_dark(theme, alternating_dark=index % 2 == 1)
             ink = "white" if dark else "black"
             inner = 135 if dense else 129
+            if "pace" in provider:
+                cards.append(
+                    _paced_dense_card(provider, path, height, dense=dense, dark=dark)
+                )
+                continue
             metrics = (
                 [
                     _card_text(
@@ -636,20 +734,355 @@ def render_quota_canvas(
     now: Optional[datetime] = None,
     style: Literal["compact", "cards"] = "compact",
     card_theme: Literal["light", "dark", "alternating"] = "alternating",
+    pace: bool = False,
+    quota_focus: Literal["primary", "long"] = "primary",
 ) -> dict:
     """Render ordered quotas as compact rows or monochrome cards; never an image wrapper."""
+    validate_focus(quota_focus)
     if card_theme not in ("light", "dark", "alternating"):
         raise ValueError("Card theme must be light, dark or alternating")
     if style == "compact":
         if card_theme != "alternating":
             raise ValueError("Card themes require the cards Canvas style")
-        return _render_compact(quotas, now=now)
+        return _render_compact(quotas, now=now, pace=pace, quota_focus=quota_focus)
     if style != "cards":
         raise ValueError("Canvas style must be compact or cards")
     validate_providers([quota.provider for quota in quotas])
     current = now if now is not None else datetime.now().astimezone()
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
-    payload = _cards_payload(quota_display_data(quotas, current), card_theme)
+    payload = _cards_payload(
+        quota_display_data(quotas, current, pace=pace, quota_focus=quota_focus),
+        card_theme,
+    )
     CanvasApiRequest.model_validate(payload)
     return payload
+
+
+def _paced_provider_card(provider, path, width, *, dark):
+    ink = "white" if dark else "black"
+    inner = width - 12
+    return _card(
+        [
+            _card_text(
+                path + ".name",
+                width=inner,
+                size=14,
+                bold=True,
+                color=ink,
+                line_height=15,
+            ),
+            _card_text(
+                path + ".primary.percent",
+                width=inner,
+                size=26 if width < 110 else 30,
+                bold=True,
+                color=ink,
+                line_height=28,
+            ),
+            _card_bar(
+                path + ".primary",
+                inner,
+                dark=dark,
+                height=5,
+                marker_percent=provider["primary"].get("paceMarker"),
+            ),
+            _card_text(
+                path + ".cardPrimaryReset",
+                width=inner,
+                size=10,
+                color=ink,
+                line_height=12,
+            ),
+            _card_text(
+                path + ".cardSecondary", width=inner, size=10, color=ink, line_height=11
+            ),
+            _card_text(
+                path + ".pace.summary",
+                width=inner,
+                size=10,
+                bold=True,
+                color=ink,
+                line_height=12,
+            ),
+            _card_text(
+                path + ".pace.forecast", width=inner, size=10, color=ink, line_height=12
+            ),
+        ],
+        width=width,
+        height=107,
+        dark=dark,
+        gap=0,
+    )
+
+
+def _paced_dense_card(provider, path, height, *, dense, dark):
+    ink = "white" if dark else "black"
+    if dense:
+        heading = _element(
+            [
+                _card_text(
+                    path + ".name",
+                    width=60,
+                    size=12,
+                    bold=True,
+                    color=ink,
+                    line_height=13,
+                ),
+                _card_text(
+                    path + ".pace.compact", width=75, size=10, color=ink, line_height=13
+                ),
+            ],
+            tw="flex flex-row",
+            style={"height": 13},
+        )
+    else:
+        heading = _card_text(
+            path + ".name", width=135, size=14, bold=True, color=ink, line_height=16
+        )
+    if provider["failed"]:
+        metrics = _card_text(
+            literal="ERR  Unavailable", width=135, size=12, color=ink, line_height=13
+        )
+    else:
+        metrics = _element(
+            [
+                _card_text(
+                    path + ".first", width=67, size=12, color=ink, line_height=13
+                ),
+                _card_text(
+                    path + ".second", width=68, size=12, color=ink, line_height=13
+                ),
+            ],
+            tw="flex flex-row",
+            style={"height": 13},
+        )
+    children = [heading, metrics]
+    if not dense:
+        provider["pace"]["denseLine"] = (
+            provider["pace"]["compact"] + " " + provider["pace"]["forecast"]
+        )
+        children.append(
+            _card_text(
+                path + ".pace.denseLine", width=135, size=10, color=ink, line_height=13
+            )
+        )
+    return _card(children, width=141, height=height, dark=dark, padding=2, gap=0)
+
+
+def _compact_insights(data, *, pace):
+    """Opt-in compact composition; default layout remains entirely unchanged."""
+    providers = data["providers"]
+    rows = []
+    if len(providers) == 1:
+        provider = providers[0]
+        rows.append(
+            _card_text(
+                "providers.0.name", width=284, size=16, bold=True, line_height=20
+            )
+        )
+        if provider["failed"]:
+            rows.extend(
+                [
+                    _text(literal="ERR  Unavailable", size=16),
+                    _text(literal="Check CodexBar"),
+                ]
+            )
+        else:
+            if pace:
+                rows.append(
+                    _card_text(
+                        "providers.0.pace.line",
+                        width=284,
+                        size=12,
+                        bold=True,
+                        line_height=24,
+                    )
+                )
+            for index, window in enumerate(provider["windows"]):
+                path = f"providers.0.windows.{index}"
+                row = _element(
+                    [
+                        _card_text(path + ".label", width=56, size=12, line_height=17),
+                        _card_text(
+                            path + ".percent",
+                            width=67,
+                            size=15,
+                            bold=True,
+                            line_height=17,
+                        ),
+                        _card_text(
+                            path + ".detail", width=139, size=12, line_height=17
+                        ),
+                    ],
+                    tw="flex flex-row",
+                    style={"gap": 11, "height": 17},
+                )
+                bar = _card_bar(
+                    path, 284, height=4, marker_percent=window.get("paceMarker")
+                )
+                rows.append(
+                    _element(
+                        [row, bar],
+                        style={"height": 21 if pace else 27, "flexShrink": 0},
+                    )
+                )
+            if (
+                len(provider["windows"]) == 1
+                and provider["windows"][0]["hasRequestUsage"]
+            ):
+                rows.append(_text("providers.0.windows.0.reset", size=12))
+    else:
+        height = 108 // len(providers)
+        for index, provider in enumerate(providers):
+            path = f"providers.{index}"
+            dense = pace and len(providers) >= 4
+            if dense:
+                children = [
+                    _element(
+                        [
+                            _card_text(
+                                path + ".name",
+                                width=76,
+                                size=12,
+                                bold=True,
+                                line_height=14,
+                            ),
+                            _card_text(
+                                path + ".first" if not provider["failed"] else None,
+                                literal="ERR",
+                                width=64,
+                                size=12,
+                                line_height=14,
+                            ),
+                            _card_text(
+                                path + ".second", width=69, size=12, line_height=14
+                            ),
+                            _card_text(
+                                path + ".pace.compact",
+                                width=75,
+                                size=10,
+                                line_height=14,
+                            ),
+                        ],
+                        tw="flex flex-row",
+                        style={"height": 14},
+                    )
+                ]
+                if provider["failed"]:
+                    children = [
+                        _element(
+                            [
+                                _card_text(
+                                    path + ".name",
+                                    width=100,
+                                    size=12,
+                                    bold=True,
+                                    line_height=14,
+                                ),
+                                _card_text(
+                                    literal="ERR  Unavailable",
+                                    width=184,
+                                    size=12,
+                                    line_height=14,
+                                ),
+                            ],
+                            tw="flex flex-row",
+                            style={"height": 14},
+                        )
+                    ]
+                if len(providers) == 4 and not provider["failed"]:
+                    children.append(
+                        _card_text(
+                            path + ".pace.forecast", width=284, size=10, line_height=12
+                        )
+                    )
+            else:
+                main = [
+                    _card_text(
+                        path + ".name", width=100, size=12, bold=True, line_height=16
+                    )
+                ]
+                if provider["failed"]:
+                    main.append(
+                        _card_text(
+                            literal="ERR  Unavailable",
+                            width=176,
+                            size=12,
+                            line_height=16,
+                        )
+                    )
+                else:
+                    main.extend(
+                        [
+                            _card_text(
+                                path + ".first", width=88, size=12, line_height=16
+                            ),
+                            _card_text(
+                                path + ".second", width=82, size=12, line_height=16
+                            ),
+                        ]
+                    )
+                children = [
+                    _element(main, tw="flex flex-row", style={"gap": 7, "height": 16})
+                ]
+                if len(providers) <= 3:
+                    line = (
+                        path + ".pace.line"
+                        if pace and len(providers) == 3 and not provider["failed"]
+                        else path + ".resets"
+                    )
+                    children.append(
+                        _card_text(line, width=284, size=12, line_height=17)
+                    )
+                    if pace and len(providers) == 2 and not provider["failed"]:
+                        children.append(
+                            _card_text(
+                                path + ".pace.line", width=284, size=12, line_height=17
+                            )
+                        )
+            style = {"height": height, "flexShrink": 0, "overflow": "hidden"}
+            if index < len(providers) - 1:
+                style["borderBottom"] = "1px solid black"
+            rows.append(_element(children, style=style))
+    header = _element(
+        [_card_text("title", size=14, bold=True, line_height=17)],
+        style={
+            "height": 22,
+            "paddingTop": 3,
+            "borderBottom": "1px solid black",
+            "flexShrink": 0,
+        },
+    )
+    body = _element(
+        rows,
+        style={"height": 113, "paddingTop": 4, "overflow": "hidden", "flexShrink": 0},
+    )
+    footer = _element(
+        [_card_text("footer", size=11, line_height=14)],
+        style={
+            "height": 17,
+            "paddingTop": 2,
+            "borderTop": "1px solid black",
+            "flexShrink": 0,
+        },
+    )
+    return {
+        "data": data,
+        "windowData": {
+            "default": [
+                _element(
+                    [header, body, footer],
+                    tw="flex flex-col bg-white text-black",
+                    style={
+                        "width": 296,
+                        "height": 152,
+                        "paddingLeft": 6,
+                        "paddingRight": 6,
+                    },
+                )
+            ]
+        },
+        "layoutFull": {"style": {"padding": 0}},
+        "border": 0,
+    }

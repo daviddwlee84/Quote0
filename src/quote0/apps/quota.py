@@ -12,6 +12,15 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .quota_pace import (
+    QuotaPace,
+    parse_pace,
+    display_pair,
+    display_windows,
+    pace_hint,
+    validate_focus,
+)
+
 
 @dataclass(frozen=True)
 class QuotaWindow:
@@ -20,6 +29,8 @@ class QuotaWindow:
     remaining_percent: Optional[float] = None
     resets_at: Optional[datetime] = None
     request_usage: Optional[Tuple[int, int]] = None
+    window_minutes: Optional[float] = None
+    pace: Optional[QuotaPace] = None
 
 
 @dataclass(frozen=True)
@@ -131,7 +142,13 @@ def _cursor_requests(raw: dict, usage: dict) -> Optional[Tuple[int, int]]:
     return None
 
 
-def _parse(provider: str, output: str, returncode: int) -> ProviderQuota:
+def _parse(
+    provider: str,
+    output: str,
+    returncode: int,
+    *,
+    observed_at: Optional[datetime] = None,
+) -> ProviderQuota:
     try:
         payload = json.loads(output)
     except (ValueError, TypeError):
@@ -155,6 +172,8 @@ def _parse(provider: str, output: str, returncode: int) -> ProviderQuota:
     if not isinstance(usage, dict):
         return ProviderQuota(provider, error=error or "No quota data returned.")
     windows = []
+    captured_at = observed_at if observed_at is not None else datetime.now(timezone.utc)
+    paces = row.get("pace") if isinstance(row.get("pace"), dict) else {}
     for slot in _SLOTS:
         raw = usage.get(slot)
         if not isinstance(raw, dict):
@@ -168,6 +187,7 @@ def _parse(provider: str, output: str, returncode: int) -> ProviderQuota:
         )
         if requests is not None:
             remaining = max(0.0, min(100.0, 100.0 * (1 - requests[0] / requests[1])))
+        duration = _number(raw.get("windowMinutes"))
         windows.append(
             QuotaWindow(
                 slot=slot,
@@ -179,6 +199,10 @@ def _parse(provider: str, output: str, returncode: int) -> ProviderQuota:
                 remaining_percent=remaining,
                 resets_at=_date(raw.get("resetsAt")),
                 request_usage=requests,
+                window_minutes=(
+                    duration if duration is not None and duration > 0 else None
+                ),
+                pace=parse_pace(paces.get(slot), remaining, captured_at),
             )
         )
     if not windows and not error:
@@ -306,7 +330,11 @@ def _footer(quotas: Sequence[ProviderQuota], current: datetime) -> str:
 
 
 def render_quota(
-    quotas: Sequence[ProviderQuota], *, now: Optional[datetime] = None
+    quotas: Sequence[ProviderQuota],
+    *,
+    now: Optional[datetime] = None,
+    pace: bool = False,
+    quota_focus: str = "primary",
 ) -> Image.Image:
     """Render one to six ordered provider rows as a monochrome device image.
 
@@ -318,6 +346,9 @@ def render_quota(
     current = now if now is not None else datetime.now().astimezone()
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
+    validate_focus(quota_focus)
+    if pace or quota_focus != "primary":
+        return _render_insights(quotas, current, pace=pace, quota_focus=quota_focus)
     image = Image.new("1", (296, 152), 1)
     draw = ImageDraw.Draw(image)
     _text(draw, (6, 4), "QUOTA LEFT", _font(13, True), 284)
@@ -395,4 +426,147 @@ def render_quota(
     footer = _footer(quotas, current)
     draw.line((6, 135, 289, 135), fill=0)
     _text(draw, (6, 139), footer, _font(10), 284)
+    return image
+
+
+def _display_metrics(primary, secondary):
+    counts = primary.request_usage if primary is not None else None
+    if counts is not None:
+        used, limit = counts
+        return f"{max(0, limit - used)}/{limit}", "left " + _percent(primary)
+    return (
+        (primary.label if primary else "P") + " " + _percent(primary),
+        (secondary.label if secondary else "S") + " " + _percent(secondary),
+    )
+
+
+def _display_resets(primary, secondary, current):
+    if primary is not None and primary.request_usage is not None:
+        return "Req {}/{} used · reset {}".format(
+            *primary.request_usage, _reset(primary, current)
+        )
+    return "reset {} {} / {} {}".format(
+        primary.label if primary else "P",
+        _reset(primary, current),
+        secondary.label if secondary else "S",
+        _reset(secondary, current),
+    )
+
+
+def _image_pace_marker(draw, y, expected_remaining):
+    position = max(7, min(287, 7 + round(280 * expected_remaining / 100)))
+    # A dark tick with light shoulders is visible over both filled and empty bar regions.
+    draw.line((position, y + 18, position, y + 22), fill=1, width=3)
+    draw.line((position, y + 18, position, y + 22), fill=0, width=1)
+
+
+def _render_insights(quotas, current, *, pace, quota_focus):
+    image = Image.new("1", (296, 152), 1)
+    draw = ImageDraw.Draw(image)
+    _text(draw, (6, 4), "QUOTA LEFT", _font(13, True), 284)
+    draw.line((6, 21, 289, 21), fill=0)
+    if len(quotas) == 1:
+        quota = quotas[0]
+        failed = bool(quota.error or not quota.windows)
+        hint = pace_hint(quota, current)
+        _text(
+            draw,
+            (6, 27),
+            _name(quota.provider),
+            _font(16, True),
+            95 if pace and not failed else 284,
+        )
+        if failed:
+            _text(draw, (6, 62), "ERR  Unavailable", _font(16), 284)
+            _text(draw, (6, 87), "Check CodexBar", _font(12), 284)
+        else:
+            if pace:
+                _text(draw, (105, 27), hint.summary, _font(11, True), 184)
+                _text(draw, (105, 40), hint.forecast, _font(11), 184)
+            windows = display_windows(quota.windows, quota_focus)
+            for index, window in enumerate(windows[:3]):
+                y = (57 + index * 25) if pace else (51 + index * 27)
+                _text(draw, (6, y), window.label, _font(12), 56)
+                _text(draw, (67, y - 2), _percent(window), _font(16, True), 67)
+                detail = (
+                    "{}/{} used".format(*window.request_usage)
+                    if window.request_usage is not None
+                    else "reset " + _reset(window, current)
+                )
+                _text(draw, (145, y), detail, _font(12), 144)
+                draw.rectangle((6, y + 18, 289, y + 22), outline=0)
+                if (
+                    window.remaining_percent is not None
+                    and window.remaining_percent > 0
+                ):
+                    right = 7 + round(281 * window.remaining_percent / 100)
+                    draw.rectangle((7, y + 19, min(right, 288), y + 21), fill=0)
+                if (
+                    pace
+                    and window.slot == hint.slot
+                    and hint.expected_remaining_percent is not None
+                ):
+                    _image_pace_marker(draw, y, hint.expected_remaining_percent)
+                if window.request_usage is not None and len(windows) == 1:
+                    _text(
+                        draw,
+                        (6, y + 36),
+                        "reset " + _reset(window, current),
+                        _font(12),
+                        284,
+                    )
+    else:
+        height = 108 // len(quotas)
+        for index, quota in enumerate(quotas):
+            y = 26 + index * height
+            failed = bool(quota.error or not quota.windows)
+            primary, secondary = display_pair(quota.windows, quota_focus)
+            first, second = _display_metrics(primary, secondary)
+            hint = pace_hint(quota, current)
+            dense = pace and len(quotas) >= 4
+            _text(
+                draw,
+                (6, y),
+                _name(quota.provider),
+                _font(12, True),
+                80 if dense else 100,
+            )
+            if failed:
+                _text(
+                    draw,
+                    (90 if dense else 113, y),
+                    "ERR  Unavailable",
+                    _font(12),
+                    199 if dense else 176,
+                )
+            elif dense:
+                _text(draw, (90, y), first, _font(11), 67)
+                _text(draw, (161, y), second, _font(11), 60)
+                _text(draw, (225, y), hint.compact, _font(10), 65)
+            else:
+                _text(draw, (113, y), first, _font(12), 88)
+                _text(draw, (207, y), second, _font(12), 82)
+            if len(quotas) <= 3:
+                line = (
+                    "Check CodexBar"
+                    if failed
+                    else _display_resets(primary, secondary, current)
+                )
+                if pace and not failed and len(quotas) == 3:
+                    line = hint.summary + " | " + hint.forecast
+                _text(draw, (6, y + 17), line, _font(11 if pace else 12), 284)
+                if pace and not failed and len(quotas) == 2:
+                    _text(
+                        draw,
+                        (6, y + 33),
+                        hint.summary + " | " + hint.forecast,
+                        _font(11),
+                        284,
+                    )
+            elif pace and len(quotas) == 4 and not failed:
+                _text(draw, (6, y + 14), hint.forecast, _font(10), 284)
+            if index < len(quotas) - 1:
+                draw.line((6, y + height - 1, 289, y + height - 1), fill=0)
+    draw.line((6, 135, 289, 135), fill=0)
+    _text(draw, (6, 139), _footer(quotas, current), _font(10), 284)
     return image
