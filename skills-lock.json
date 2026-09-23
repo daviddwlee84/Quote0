@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "dot-canvas-designer": {
+      "source": "MindReset/dot_skill",
+      "sourceType": "github",
+      "skillPath": "skills/dot-canvas-designer/SKILL.md",
+      "computedHash": "5ae31b3a7bf9ec5c896c4786e87e73a1ae78b341d4c80f5e5710b803fd1dd023"
+    },
+    "dot-device-openapi": {
+      "source": "MindReset/dot_skill",
+      "sourceType": "github",
+      "skillPath": "skills/dot-device-openapi/SKILL.md",
+      "computedHash": "b99b5a0de79c244149620d9bc421f8de79668327520a2b6b4e96b62a6fd24d02"
+    },
+    "dot-openapi": {
+      "source": "MindReset/dot_skill",
+      "sourceType": "github",
+      "skillPath": "skills/dot-openapi/SKILL.md",
+      "computedHash": "c15918c6bcba3fb8d7b25c96c05a92980899bd791290c41028a3b0be9b894f2c"
+    }
+  }
+}

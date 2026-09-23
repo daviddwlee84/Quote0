@@ -1,0 +1,24 @@
+name: dot-openapi
+description: |
+  Compatibility router for Dot. OpenAPI work.
+
+  Use dot-device-openapi for device operations:
+  - list devices
+  - get device status
+  - switch to next content
+  - list device tasks
+  - send Text API, Image API, or finished Canvas API payloads
+
+  Use dot-canvas-designer for Canvas layout work:
+  - design windowData
+  - revise Canvas cards, dashboards, and status panels
+  - reason about layout, styles, list rendering, conditions, and formatting
+
+instructions: |
+  Prefer the split skills instead of this compatibility entry.
+
+  For design-and-send workflows:
+  1. Use dot-canvas-designer to produce the Canvas payload.
+  2. Use dot-device-openapi to send it to the device.
+
+tools: []
